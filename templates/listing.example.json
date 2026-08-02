@@ -16,6 +16,10 @@
   "cta": "Schedule a Private Showing",
   "music": "assets/music.mp3",
 
+  "//engine": "kenburns (2D, default) or parallax (local 2.5D depth motion).",
+  "engine": "kenburns",
+  "parallax": { "amplitude": 0.04, "zoom": 1.06 },
+
   "listing": {
     "tagline": "Modern Coastal Masterpiece",
     "address": "123 Ocean View Drive",
@@ -38,13 +42,14 @@
     "headshot": "assets/headshot.jpg"
   },
 
+  "//photos": "Entries can be photos OR your own video clips (.mp4/.mov). Per-photo you can set: motion, caption, duration, engine (kenburns|parallax), depth (path to a depth map). Video entries support: duration (seconds or \"full\") and start (trim-in seconds).",
   "photos": [
+    { "file": "photos/00-drone-flyover.mp4", "duration": "full", "caption": "Aerial Tour" },
     { "file": "photos/01-exterior.jpg", "motion": "push-in", "caption": "Grand Coastal Entrance" },
     { "file": "photos/02-living.jpg", "motion": "pan-right", "caption": "Open-Concept Living" },
-    { "file": "photos/03-kitchen.jpg", "motion": "pull-out", "caption": "Gourmet Chef's Kitchen" },
+    { "file": "photos/03-kitchen.jpg", "motion": "pull-out", "engine": "parallax", "caption": "Gourmet Chef's Kitchen" },
     { "file": "photos/04-primary.jpg", "motion": "drone-up", "caption": "Primary Suite" },
-    { "file": "photos/05-pool.jpg", "motion": "ken-burns", "caption": "Infinity Pool & Ocean Views" },
-    { "file": "photos/06-sunset.jpg", "motion": "push-in" }
+    { "file": "photos/05-pool.jpg", "motion": "ken-burns", "caption": "Infinity Pool & Ocean Views" }
   ],
 
   "//ai": "Optional. Leave out to use the free local engine. To use generative motion, set an ai block:",

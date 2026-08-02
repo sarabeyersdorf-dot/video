@@ -25,7 +25,7 @@ Each photo gets a smooth cinematic camera move — the same moves the paid tools
 | `pull-out` | slow zoom out — reveals the whole space |
 | `pan-left` / `pan-right` | glide across wide rooms & views |
 | `pan-up` / `pan-down` | tilt up façades / down staircases |
-| `drone-up` | rising "drone reveal" |
+| `drone-up` | rising "drone reveal" (2D; see the parallax engine for a 3D version) |
 | `ken-burns` | diagonal zoom + drift |
 | `still` | almost no motion |
 
@@ -188,12 +188,60 @@ Run `reel create --help` for the full list.
 
 ---
 
-## Optional: true AI-generative motion
+## Drone fly-overs & aerial looks
 
-The default engine (Ken Burns–style camera motion) needs no API keys and is what
-most listing reels use. If you want **generative** motion — parallax, moving
-water, drifting clouds, walk-throughs — you can hand each photo to an external
-image-to-video model (Higgsfield, Runway, Kling, Luma, …) via the `ai` block:
+There are three ways to get real drone/aerial-style motion, from free to premium:
+
+### 1. Your own drone footage & aerial photos (free, best quality)
+
+If you already have drone clips or aerial shots, just list them like any photo —
+`.mp4`, `.mov`, `.webm` are all fine. They're trimmed and dropped straight into
+the same branded intro / caption / music / outro pipeline, mixed freely with stills:
+
+```jsonc
+"photos": [
+  { "file": "photos/00-drone-flyover.mp4", "duration": "full", "caption": "Aerial Tour" },
+  { "file": "photos/01-exterior.jpg", "motion": "push-in", "caption": "Grand Entrance" }
+]
+```
+
+- `"duration": "full"` uses the whole clip; a number uses that many seconds.
+- `"start": 6` trims the first 6 seconds off the front.
+
+### 2. Local 2.5D depth parallax (free, on your machine)
+
+The default `kenburns` engine moves a flat photo (zoom/pan). The **`parallax`**
+engine estimates a **depth map** and moves the photo in 3D, so near objects shift
+more than far ones — a real dimensional "push through" a room, not a flat zoom:
+
+```bash
+reel create listing.json --engine parallax
+```
+
+or per-photo: `{ "file": "kitchen.jpg", "engine": "parallax" }`.
+
+For good depth, install a depth model once (runs on CPU, no GPU needed):
+
+```bash
+pip install numpy pillow torch transformers
+python3 tools/estimate_depth.py photos/      # writes photos/<name>.depth.png
+```
+
+ListingReel picks those depth maps up automatically. Without a model it falls
+back to numpy+Pillow with a crude heuristic depth (works, but flatter). Keep
+parallax moves subtle — from a single photo, big moves reveal edges the photo
+never captured (this is true of every photo-to-3D tool).
+
+> **What this is not:** neither engine can fly *through* a wall into a room the
+> photo doesn't show, or invent an aerial shot from a ground-level photo — that
+> needs real footage (option 1) or generative AI (option 3).
+
+### 3. Generative AI (premium, per-clip credits)
+
+For genuine generative motion from a single photo — drone-like moves with real
+parallax, moving water, drifting clouds, walk-throughs — hand each photo to an
+external image-to-video model (Higgsfield, Runway, Kling, Luma, …) via the `ai`
+block. This is the closest match to what the paid websites do for those shots:
 
 ```jsonc
 "ai": {

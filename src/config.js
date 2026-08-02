@@ -6,7 +6,7 @@
 
 import { readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
-import { collectImages, isImage } from './util/images.js';
+import { collectImages, isImage, isVideo } from './util/images.js';
 import { autoMotion, isMotion } from './engine/motions.js';
 import { resolveFormat } from './formats.js';
 import { resolveTheme } from './themes.js';
@@ -74,6 +74,14 @@ export function loadProject({ configPath, cli = {} }) {
     music: resolveAsset(baseDir, cli.music || raw.music),
     musicVolume: Number(raw.theme?.musicVolume ?? raw.musicVolume ?? DEFAULTS.musicVolume),
     ai: cli.ai === false ? null : raw.ai || null,
+    // Motion engine: 'kenburns' (default, 2D) or 'parallax' (local 2.5D depth).
+    engine: (cli.engine || raw.engine || 'kenburns').toLowerCase(),
+    parallax: {
+      amplitude: raw.parallax?.amplitude,
+      zoom: raw.parallax?.zoom,
+      depthCmd: raw.parallax?.depthCmd || null,
+      invertDepth: raw.parallax?.invertDepth || false,
+    },
     listing,
     agent: {
       ...agent,
@@ -97,28 +105,33 @@ export function loadProject({ configPath, cli = {} }) {
 function resolvePhotos({ raw, baseDir, cli, project }) {
   let list = [];
 
+  const mediaEntry = (entry, i) => {
+    const file = resolveAsset(baseDir, entry.file);
+    if (!existsSync(file)) throw new Error(`Media not found: ${entry.file}`);
+    const video = isVideo(file);
+    const motion = entry.motion && isMotion(entry.motion) ? entry.motion : autoMotion(i);
+    return {
+      file,
+      type: video ? 'video' : 'image',
+      motion: motion === 'auto' ? autoMotion(i) : motion,
+      caption: entry.caption || null,
+      // "full" keeps a video clip's entire length (resolved at render time).
+      duration: entry.duration === 'full' ? 'full' : entry.duration ? Number(entry.duration) : project.clipDuration,
+      start: entry.start != null ? Number(entry.start) : 0,
+      engine: (entry.engine || project.engine).toLowerCase(),
+      depth: resolveAsset(baseDir, entry.depth),
+    };
+  };
+
   if (Array.isArray(raw.photos) && raw.photos.length) {
-    list = raw.photos.map((p, i) => {
-      const entry = typeof p === 'string' ? { file: p } : { ...p };
-      const file = resolveAsset(baseDir, entry.file);
-      if (!existsSync(file)) throw new Error(`Photo not found: ${entry.file}`);
-      const motion = entry.motion && isMotion(entry.motion) ? entry.motion : autoMotion(i);
-      return {
-        file,
-        motion: motion === 'auto' ? autoMotion(i) : motion,
-        caption: entry.caption || null,
-        duration: entry.duration ? Number(entry.duration) : project.clipDuration,
-      };
-    });
+    list = raw.photos.map((p, i) => mediaEntry(typeof p === 'string' ? { file: p } : { ...p }, i));
   } else if (cli.photos) {
     const dir = path.resolve(cli.photos);
     const files = collectImages(dir);
-    list = files.map((file, i) => ({
-      file,
-      motion: cli.motion && isMotion(cli.motion) && cli.motion !== 'auto' ? cli.motion : autoMotion(i),
-      caption: null,
-      duration: project.clipDuration,
-    }));
+    const forced = cli.motion && isMotion(cli.motion) && cli.motion !== 'auto' ? cli.motion : null;
+    list = files.map((file, i) =>
+      mediaEntry({ file, motion: forced || undefined }, i)
+    );
   }
 
   // Optional cap on number of photos.
