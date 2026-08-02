@@ -1,0 +1,55 @@
+{
+  "output": {
+    "format": "reel",
+    "fps": 30,
+    "file": "output/123-ocean-view.mp4"
+  },
+  "theme": {
+    "name": "luxe",
+    "accent": "#C6A15B",
+    "musicVolume": 0.7
+  },
+  "clipDuration": 4.0,
+  "transition": { "type": "auto", "duration": 0.8 },
+  "intro": true,
+  "outro": true,
+  "cta": "Schedule a Private Showing",
+  "music": "assets/music.mp3",
+
+  "listing": {
+    "tagline": "Modern Coastal Masterpiece",
+    "address": "123 Ocean View Drive",
+    "city": "Malibu, CA 90265",
+    "price": "$4,250,000",
+    "beds": 5,
+    "baths": 6,
+    "sqft": 6200,
+    "highlights": ["Ocean views", "Infinity pool", "Chef's kitchen"]
+  },
+
+  "agent": {
+    "name": "Sara Beyersdorf",
+    "title": "Broker Associate",
+    "brokerage": "Sara Sells California",
+    "phone": "(555) 123-4567",
+    "email": "sara@sarasellscalifornia.com",
+    "license": "DRE #01234567",
+    "logo": "assets/logo.png",
+    "headshot": "assets/headshot.jpg"
+  },
+
+  "photos": [
+    { "file": "photos/01-exterior.jpg", "motion": "push-in", "caption": "Grand Coastal Entrance" },
+    { "file": "photos/02-living.jpg", "motion": "pan-right", "caption": "Open-Concept Living" },
+    { "file": "photos/03-kitchen.jpg", "motion": "pull-out", "caption": "Gourmet Chef's Kitchen" },
+    { "file": "photos/04-primary.jpg", "motion": "drone-up", "caption": "Primary Suite" },
+    { "file": "photos/05-pool.jpg", "motion": "ken-burns", "caption": "Infinity Pool & Ocean Views" },
+    { "file": "photos/06-sunset.jpg", "motion": "push-in" }
+  ],
+
+  "//ai": "Optional. Leave out to use the free local engine. To use generative motion, set an ai block:",
+  "//ai-example": {
+    "provider": "command",
+    "command": "higgsfield generate create --type image-to-video --image {image} --prompt 'slow cinematic {motion}, real estate, photorealistic' --duration {duration} --output {out}"
+  }
+}

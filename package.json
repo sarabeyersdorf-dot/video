@@ -1,0 +1,36 @@
+{
+  "name": "listing-reel",
+  "version": "0.1.0",
+  "description": "Turn property photos into cinematic real-estate marketing videos from the command line — powered by FFmpeg, with an optional AI-generative motion layer.",
+  "keywords": [
+    "real-estate",
+    "video",
+    "ffmpeg",
+    "marketing",
+    "cinematic",
+    "ken-burns",
+    "listing",
+    "cli"
+  ],
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "reel": "bin/reel.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "templates",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node bin/reel.js",
+    "demo": "node bin/reel.js demo"
+  },
+  "dependencies": {
+    "commander": "^12.1.0"
+  }
+}

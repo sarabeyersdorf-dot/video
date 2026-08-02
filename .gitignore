@@ -1,0 +1,8 @@
+node_modules/
+demo/
+output/
+*.log
+.DS_Store
+# Rendered videos and per-project assets/photos are not committed
+*.mp4
+!templates/**
