@@ -156,6 +156,9 @@
   .hidden-input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
   .tagchip { font-size:12px; padding:5px 11px; border-radius:20px; border:1px solid var(--line-2); background:var(--bg-2); color:var(--muted); cursor:pointer; }
   .tagchip:hover { color:var(--ink); border-color:var(--accent); }
+  .sizes { margin-top:12px; font-size:12.5px; color:var(--muted); display:flex; gap:14px; flex-wrap:wrap; align-items:center; }
+  .sizes label { display:flex; gap:6px; align-items:center; color:var(--ink); cursor:pointer; }
+  .sizes input { accent-color:var(--accent); width:15px; height:15px; }
   textarea { font: inherit; font-size:13.5px; color:var(--ink); background:var(--bg-2); border:1px solid var(--line-2); border-radius:8px; padding:9px 11px; width:100%; resize:vertical; line-height:1.5; }
 
   /* ---- Header title + status ---- */
@@ -243,6 +246,11 @@
         <button class="btn primary" id="exportBtn">● Export video</button>
         <a class="btn ghost" id="dlLink" style="display:none" download>⬇ Download</a>
         <span class="status" id="status">Add a few photos to begin.</span>
+      </div>
+      <div class="sizes" id="exportSizes">Export sizes:
+        <label><input type="checkbox" id="sz_reel"> Reel 9:16</label>
+        <label><input type="checkbox" id="sz_square"> Square 1:1</label>
+        <label><input type="checkbox" id="sz_wide"> Wide 16:9</label>
       </div>
       <p class="hint" id="exportHint"></p>
     </div>
@@ -1445,59 +1453,77 @@
     for (var i = 0; i < opts.length; i++) { if (window.MediaRecorder && MediaRecorder.isTypeSupported(opts[i])) return opts[i]; }
     return "";
   }
+  var exporting = false;
+  function fmtLabel(k) { return { reel: "Reel", square: "Square", wide: "Wide" }[k] || k; }
+
+  // Record the current canvas/timeline to a file. Resolves when saved or declined.
+  function recordAndSave(prefix) {
+    return new Promise(function (resolve) {
+      var mime = pickMime();
+      if (!window.MediaRecorder || mime === "") { setStatus("Your browser can't record video — try Chrome, Edge, or Safari.", "err"); resolve(false); return; }
+      var ac = ensureAudio(), fps = 30;
+      var vstream = canvas.captureStream(fps), tracks = vstream.getVideoTracks(), dest = null;
+      if (((state.music && state.music.buffer) || (state.voice && state.voice.buffer)) && ac) dest = ac.createMediaStreamDestination();
+      var allTracks = tracks.slice(); if (dest) allTracks = allTracks.concat(dest.stream.getAudioTracks());
+      var rec;
+      try { rec = new MediaRecorder(new MediaStream(allTracks), { mimeType: mime, videoBitsPerSecond: 10000000 }); }
+      catch (e) { setStatus("Recorder error: " + e.message, "err"); resolve(false); return; }
+      var chunks = [];
+      rec.ondataavailable = function (e) { if (e.data && e.data.size) chunks.push(e.data); };
+      rec.onstop = function () {
+        var actual = rec.mimeType || mime, ext = actual.indexOf("mp4") >= 0 ? "mp4" : "webm";
+        var blob = new Blob(chunks, { type: actual.split(";")[0] });
+        var url = URL.createObjectURL(blob);
+        var addr = ($("f_address").value || "listing").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+        var fname = "listing-reel-" + (addr || "video") + "-" + state.format + "." + ext;
+        var dl = $("dlLink"); dl.href = url; dl.download = fname; dl.style.display = "inline-flex";
+        dl.textContent = "⬇ Save " + fmtLabel(state.format) + " (" + (blob.size / 1e6).toFixed(1) + " MB)";
+        saveFile(fname, blob).then(function () { resolve(true); });
+        exporting = false;
+      };
+      exporting = true;
+      setStatus((prefix || "") + "Recording… keep this tab in front (" + fmt(timeline.total) + "s).");
+      playhead = 0; syncScrub(); startVideosAt(0);
+      if (dest) { startMusic(0, dest); startVoice(0, dest); }
+      rec.start();
+      var t0 = performance.now();
+      function ex() {
+        var t = (performance.now() - t0) / 1000; playhead = t;
+        if (t >= timeline.total) { drawAt(timeline.total); syncScrub(); try { rec.stop(); } catch (e) {} pauseVideos(); stopMusic(); stopVoice(); return; }
+        syncVideos(t); drawAt(t); syncScrub(); requestAnimationFrame(ex);
+      }
+      requestAnimationFrame(ex);
+    });
+  }
+
+  // Export every checked size in turn (one-click multi-format).
   function exportVideo() {
     if (!timeline.total) return;
     if (playing) stop();
-    var mime = pickMime();
-    if (!window.MediaRecorder || mime === "") { setStatus("Your browser can't record video — try Chrome, Edge, or Safari.", "err"); return; }
-    var ac = ensureAudio();
-    var fps = 30;
-    var vstream = canvas.captureStream(fps);
-    var tracks = vstream.getVideoTracks();
-    var dest = null;
-    if (((state.music && state.music.buffer) || (state.voice && state.voice.buffer)) && ac) { dest = ac.createMediaStreamDestination(); }
-    var allTracks = tracks.slice();
-    if (dest) allTracks = allTracks.concat(dest.stream.getAudioTracks());
-    var stream = new MediaStream(allTracks);
-    var rec;
-    try { rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 10000000 }); }
-    catch (e) { setStatus("Recorder error: " + e.message, "err"); return; }
-    var chunks = [];
-    rec.ondataavailable = function (e) { if (e.data && e.data.size) chunks.push(e.data); };
-    rec.onstop = function () {
-      var actual = (rec.mimeType || mime);
-      var ext = actual.indexOf("mp4") >= 0 ? "mp4" : "webm";
-      var blob = new Blob(chunks, { type: actual.split(";")[0] });
-      var url = URL.createObjectURL(blob);
-      var addr = ($("f_address").value || "listing").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-      var fname = "listing-reel-" + (addr || "video") + "-" + state.format + "." + ext;
-      var dl = $("dlLink"); dl.href = url; dl.download = fname; dl.style.display = "inline-flex";
-      dl.textContent = "⬇ Save " + (blob.size / 1e6).toFixed(1) + " MB";
-      saveFile(fname, blob).then(function (r) {
-        setStatus(r.status === "declined" ? "Export ready — use Download to save it." : "Video ready — " + (blob.size / 1e6).toFixed(1) + " MB.", "ok");
-      });
-      exporting = false;
-    };
-
-    // run the render loop in real time, recording
-    exporting = true;
-    setStatus("Recording… keep this tab in front (" + fmt(timeline.total) + "s).");
+    var sizes = ["reel", "square", "wide"].filter(function (k) { return $("sz_" + k).checked; });
+    if (!sizes.length) sizes = [state.format];
+    var orig = state.format;
     $("exportBtn").disabled = true; $("playBtn").disabled = true;
-    playhead = 0; syncScrub();
-    startVideosAt(0);
-    if (dest) { startMusic(0, dest); startVoice(0, dest); }
-    rec.start();
-    var t0 = performance.now();
-    function ex() {
-      var t = (performance.now() - t0) / 1000;
-      playhead = t;
-      if (t >= timeline.total) { drawAt(timeline.total); syncScrub(); try { rec.stop(); } catch (e) {} pauseVideos(); stopMusic(); stopVoice(); $("exportBtn").disabled = false; $("playBtn").disabled = false; return; }
-      syncVideos(t); drawAt(t); syncScrub();
-      requestAnimationFrame(ex);
-    }
-    requestAnimationFrame(ex);
+    var i = 0;
+    (function nextFmt() {
+      if (i >= sizes.length) {
+        if (state.format !== orig) setFormat(orig);
+        $("exportBtn").disabled = false; $("playBtn").disabled = false;
+        setStatus(sizes.length > 1 ? "Done — exported " + sizes.length + " sizes: " + sizes.map(fmtLabel).join(", ") + "." : "Video ready.", "ok");
+        return;
+      }
+      var fmtk = sizes[i];
+      // Always resize + rebuild for this size (even the first/current one), then
+      // let it settle so the recorder captures the full timeline, not a stub.
+      state.format = fmtk;
+      Array.prototype.forEach.call($("formatSeg").children, function (b) { b.setAttribute("aria-pressed", b.dataset.format === fmtk ? "true" : "false"); });
+      setCanvasSize(); rebuild(); drawAt(posterTime());
+      setTimeout(function () {
+        var prefix = sizes.length > 1 ? fmtLabel(fmtk) + " (" + (i + 1) + "/" + sizes.length + ") — " : "";
+        recordAndSave(prefix).then(function () { i++; nextFmt(); });
+      }, 180);
+    })();
   }
-  var exporting = false;
 
   function setStatus(msg, cls) { var s = $("status"); s.textContent = msg; s.className = "status" + (cls ? " " + cls : ""); }
 
@@ -1818,6 +1844,7 @@
     if (!FORMATS[f]) return;
     state.format = f;
     Array.prototype.forEach.call($("formatSeg").children, function (b) { b.setAttribute("aria-pressed", b.dataset.format === f ? "true" : "false"); });
+    var cb = $("sz_" + f); if (cb) cb.checked = true;   // always include the previewed size
     setCanvasSize(); rebuild(); scheduleAutosave();
   }
   function syncSwatches() {

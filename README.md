@@ -79,6 +79,9 @@ The app also includes:
   over the first seconds with a pop / slide / typewriter / word-by-word / bar-wipe
   style, plus an optional closing hook. Per-clip captions now animate in (slide /
   pop / fade) with an accent-bar wipe.
+- **One-click multi-format export.** Tick any of Reel 9:16 / Square 1:1 / Wide 16:9
+  and Export once — it renders each size in turn and saves all of them, so the same
+  listing is ready for Instagram, the feed, and YouTube/MLS without re-editing.
 - **Voiceover.** The app writes a narration script from your listing; hear it read
   by a computer voice to check pacing, then either **record it in your own voice**
   (one tap) or **import an AI-voice file** — the narration is mixed into the export
