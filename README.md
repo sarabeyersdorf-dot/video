@@ -79,6 +79,12 @@ The app also includes:
   over the first seconds with a pop / slide / typewriter / word-by-word / bar-wipe
   style, plus an optional closing hook. Per-clip captions now animate in (slide /
   pop / fade) with an accent-bar wipe.
+- **Voiceover.** The app writes a narration script from your listing; hear it read
+  by a computer voice to check pacing, then either **record it in your own voice**
+  (one tap) or **import an AI-voice file** — the narration is mixed into the export
+  and the music **ducks** automatically underneath it. (Browser speech can't be
+  captured into a video file, so the recorded/imported track is what lands in the
+  export.)
 
 > On the shareable claude.ai link, browser storage can be cleared between visits,
 > so for a permanent library use the downloaded/hosted copy of `web/studio.html`,

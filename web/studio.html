@@ -156,6 +156,7 @@
   .hidden-input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
   .tagchip { font-size:12px; padding:5px 11px; border-radius:20px; border:1px solid var(--line-2); background:var(--bg-2); color:var(--muted); cursor:pointer; }
   .tagchip:hover { color:var(--ink); border-color:var(--accent); }
+  textarea { font: inherit; font-size:13.5px; color:var(--ink); background:var(--bg-2); border:1px solid var(--line-2); border-radius:8px; padding:9px 11px; width:100%; resize:vertical; line-height:1.5; }
 
   /* ---- Header title + status ---- */
   .proj-id { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
@@ -340,6 +341,38 @@
       </section>
 
       <section class="card">
+        <h2>Voiceover &#127908;</h2>
+        <p class="desc">The app can write a narration script from your listing. Record it in your own voice or import an AI voice &mdash; it&rsquo;s mixed under the music, which ducks automatically.</p>
+        <textarea id="vo_script" rows="4" placeholder="Your narration script appears here&hellip;"></textarea>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px">
+          <button class="btn" id="voWriteBtn">&#10024; Write script</button>
+          <button class="btn ghost" id="voPreviewBtn">&#9654; Preview voice</button>
+          <button class="btn ghost" id="voStopPrevBtn" title="Stop preview">&#9632;</button>
+        </div>
+        <div class="subgrid" style="margin-top:12px">
+          <label class="field">Preview voice
+            <select id="vo_voice"></select>
+          </label>
+          <label class="field">Speed
+            <input type="range" id="vo_rate" min="0.7" max="1.3" step="0.05" value="1">
+          </label>
+        </div>
+        <p class="storage-note">The computer preview voice is for checking pacing &mdash; it can&rsquo;t be saved into the video. To put narration in the exported reel, record it or import an audio file:</p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:2px">
+          <button class="btn" id="voRecBtn">&#9679; Record</button>
+          <button class="btn ghost" id="voImportBtn">Import audio</button>
+          <button class="btn ghost" id="voClearBtn" style="display:none">Remove</button>
+        </div>
+        <div id="vo_status" style="font-size:12px;color:var(--accent);margin-top:8px;font-family:var(--mono)"></div>
+        <div class="subgrid" style="margin-top:12px">
+          <label class="field">Voiceover volume
+            <input type="range" id="vo_vol" min="0" max="100" value="100">
+          </label>
+          <label class="toggle" style="align-self:end;padding-bottom:9px"><input type="checkbox" id="vo_duck" checked> Duck music under voice</label>
+        </div>
+      </section>
+
+      <section class="card">
         <h2>Hooks &amp; captions &#10024;</h2>
         <p class="desc">A punchy opening hook grabs the scroll in the first second. Tap a suggestion or type your own.</p>
         <label class="field full">Opening hook
@@ -479,6 +512,7 @@
 <input type="file" id="bkBannerInput" class="hidden-input" accept="image/*">
 <input type="file" id="bkIconInput" class="hidden-input" accept="image/*">
 <input type="file" id="bkImportInput" class="hidden-input" accept="application/json,.json">
+<input type="file" id="vo_importInput" class="hidden-input" accept="audio/*">
 
 <script>
 (function () {
@@ -527,7 +561,12 @@
     hookStyle: "pop",        // pop | slide | type | word | wipe
     hookPos: "center",       // top | center | bottom
     endHookText: "",         // closing hook (near the outro)
-    capStyle: "slide"        // caption animation: fade | slide | pop
+    capStyle: "slide",       // caption animation: fade | slide | pop
+    voScript: "",            // narration script
+    voice: null,             // {blob,buffer,name,duration}
+    voVolume: 1.0,
+    duck: true,              // lower music under the voiceover
+    ttsRate: 1.0
   };
   var uid = 1;
   function newId() { return "p_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 7); }
@@ -1137,12 +1176,13 @@
     startWall = performance.now(); startHead = playhead;
     startVideosAt(playhead);
     startMusic(playhead);
+    startVoice(playhead);
     rafId = requestAnimationFrame(loop);
   }
   function stop() {
     playing = false; $("playBtn").textContent = "▶"; $("playBtn").setAttribute("aria-label", "Play");
     if (rafId) cancelAnimationFrame(rafId);
-    pauseVideos(); stopMusic();
+    pauseVideos(); stopMusic(); stopVoice();
   }
   function seek(t) {
     playhead = Math.max(0, Math.min(timeline.total, t));
@@ -1198,6 +1238,11 @@
     g.gain.linearRampToValueAtTime(vol, now + Math.max(0.01, 1.2 - fromT));
     var outStart = now + Math.max(0.01, (total - 2.0) - fromT);
     if ((total - 2.0) > fromT) { g.gain.setValueAtTime(vol, outStart); g.gain.linearRampToValueAtTime(0.0001, outStart + 2.0); }
+    // duck the music down while the voiceover is speaking
+    if (state.duck && state.voice && state.voice.buffer) {
+      var dv = vol * 0.32, dStart = now + Math.max(0, VO_START - fromT), dEnd = now + Math.max(0, voEnd() - fromT);
+      if (dEnd > dStart) { g.gain.setValueAtTime(g.gain.value, dStart); g.gain.linearRampToValueAtTime(dv, dStart + 0.25); g.gain.setValueAtTime(dv, Math.max(dStart + 0.25, dEnd - 0.3)); g.gain.linearRampToValueAtTime(vol, dEnd); }
+    }
     src.connect(g); g.connect(ac.destination);
     if (extraDest) g.connect(extraDest);
     var offset = fromT % (state.music.buffer.duration || 1);
@@ -1205,6 +1250,92 @@
     musicNodes = { src: src, g: g };
   }
   function stopMusic() { if (musicNodes) { try { musicNodes.src.stop(); } catch (e) {} musicNodes = null; } }
+
+  // ------------------------------------------------ voiceover
+  var VO_START = 0.4, voiceNodes = null, voRec = null, voTimer = null;
+  function startVoice(fromT, extraDest) {
+    stopVoice();
+    if (!state.voice || !state.voice.buffer) return;
+    var ac = ensureAudio(); if (!ac) return;
+    var src = ac.createBufferSource(); src.buffer = state.voice.buffer;
+    var g = ac.createGain(); g.gain.value = state.voVolume;
+    src.connect(g); g.connect(ac.destination); if (extraDest) g.connect(extraDest);
+    var offset = Math.max(0, fromT - VO_START);
+    var when = ac.currentTime + Math.max(0, VO_START - fromT);
+    try { src.start(when, offset); } catch (e) {}
+    voiceNodes = { src: src, g: g };
+  }
+  function stopVoice() { if (voiceNodes) { try { voiceNodes.src.stop(); } catch (e) {} voiceNodes = null; } }
+  function voEnd() { return state.voice ? VO_START + state.voice.duration : 0; }
+
+  function setVoiceBlob(blob, name) {
+    var ac = ensureAudio(); if (!ac) return Promise.resolve();
+    return blob.arrayBuffer().then(function (b) { return ac.decodeAudioData(b); }).then(function (audio) {
+      state.voice = { blob: blob, buffer: audio, name: name || "voiceover", duration: audio.duration };
+      $("vo_status").textContent = "Voiceover ready ✓ — " + state.voice.duration.toFixed(1) + "s";
+      $("voClearBtn").style.display = "inline-flex";
+      rebuild(); scheduleAutosave();
+    }).catch(function () { setStatus("Couldn't read that audio as a voiceover.", "err"); });
+  }
+  function clearVoice() { stopVoice(); state.voice = null; $("vo_status").textContent = ""; $("voClearBtn").style.display = "none"; scheduleAutosave(); }
+
+  // AI narration script from the listing + captions
+  function listJoin(a) { if (!a.length) return ""; if (a.length === 1) return a[0]; return a.slice(0, -1).join(", ") + " and " + a[a.length - 1]; }
+  function generateScript() {
+    var L = listing(), A = agent(), lines = [];
+    lines.push("Welcome to " + (L.address || "this exceptional home") + (L.city ? " in " + String(L.city).split(",")[0] : "") + ".");
+    var specs = [];
+    if (L.beds != null) specs.push(L.beds + (Number(L.beds) === 1 ? " bedroom" : " bedrooms"));
+    if (L.baths != null) specs.push(L.baths + (Number(L.baths) === 1 ? " bathroom" : " bathrooms"));
+    if (L.sqft != null) specs.push(Number(L.sqft).toLocaleString("en-US") + " square feet");
+    if (specs.length) lines.push("This home offers " + listJoin(specs) + (L.price ? ", offered at " + L.price : "") + ".");
+    else if (L.price) lines.push("Offered at " + L.price + ".");
+    if (L.tagline) lines.push(L.tagline + ".");
+    var caps = state.media.filter(function (m) { return m.caption; }).map(function (m) { return String(m.caption).toLowerCase(); });
+    if (caps.length) lines.push("Highlights include " + listJoin(caps) + ".");
+    lines.push("To arrange a private showing, contact " + (A.name || "me") + (A.brokerage ? " with " + A.brokerage : "") + (A.phone ? " at " + A.phone : "") + ".");
+    return lines.join(" ");
+  }
+
+  // computer-voice PREVIEW only (Web Speech can't be recorded into the export)
+  var ttsVoices = [];
+  function loadTtsVoices() {
+    if (!("speechSynthesis" in window)) return;
+    ttsVoices = speechSynthesis.getVoices() || [];
+    var sel = $("vo_voice"); if (!sel) return; sel.innerHTML = "";
+    ttsVoices.forEach(function (v, i) { var o = document.createElement("option"); o.value = i; o.textContent = v.name + (v.lang ? " (" + v.lang + ")" : ""); sel.appendChild(o); });
+    var en = ttsVoices.findIndex(function (v) { return /en[-_]US/i.test(v.lang); }); if (en >= 0) sel.value = en;
+  }
+  function previewVoice() {
+    if (!("speechSynthesis" in window)) { setStatus("This browser has no speech voices.", "err"); return; }
+    speechSynthesis.cancel();
+    var u = new SpeechSynthesisUtterance($("vo_script").value || "");
+    var v = ttsVoices[+$("vo_voice").value]; if (v) u.voice = v;
+    u.rate = +$("vo_rate").value || 1;
+    speechSynthesis.speak(u);
+  }
+  function stopPreviewVoice() { if ("speechSynthesis" in window) speechSynthesis.cancel(); }
+
+  // record narration with the mic (this DOES land in the export)
+  function toggleRecord() {
+    if (voRec && voRec.state === "recording") { try { voRec.stop(); } catch (e) {} return; }
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { setStatus("Mic recording isn't available here — Import a voiceover file instead.", "err"); return; }
+    navigator.mediaDevices.getUserMedia({ audio: true }).then(function (stream) {
+      var chunks = []; var rec = new MediaRecorder(stream);
+      rec.ondataavailable = function (e) { if (e.data && e.data.size) chunks.push(e.data); };
+      rec.onstop = function () {
+        stream.getTracks().forEach(function (t) { t.stop(); });
+        clearInterval(voTimer); voRec = null;
+        $("voRecBtn").textContent = "● Record"; $("voRecBtn").classList.remove("primary");
+        setVoiceBlob(new Blob(chunks, { type: rec.mimeType || "audio/webm" }), "recording");
+      };
+      rec.start(); voRec = rec;
+      var t0 = performance.now();
+      $("voRecBtn").textContent = "■ Stop"; $("voRecBtn").classList.add("primary");
+      voTimer = setInterval(function () { $("vo_status").textContent = "Recording… " + ((performance.now() - t0) / 1000).toFixed(1) + "s (read the script above)"; }, 100);
+    }).catch(function () { setStatus("Microphone permission denied — Import a voiceover file instead.", "err"); });
+  }
+
 
   // ------------------------------------------------ beat detection (offline)
   // Estimates tempo from the dropped track and builds a beat grid, all client-
@@ -1324,7 +1455,7 @@
     var vstream = canvas.captureStream(fps);
     var tracks = vstream.getVideoTracks();
     var dest = null;
-    if (state.music && state.music.buffer && ac) { dest = ac.createMediaStreamDestination(); }
+    if (((state.music && state.music.buffer) || (state.voice && state.voice.buffer)) && ac) { dest = ac.createMediaStreamDestination(); }
     var allTracks = tracks.slice();
     if (dest) allTracks = allTracks.concat(dest.stream.getAudioTracks());
     var stream = new MediaStream(allTracks);
@@ -1354,13 +1485,13 @@
     $("exportBtn").disabled = true; $("playBtn").disabled = true;
     playhead = 0; syncScrub();
     startVideosAt(0);
-    if (dest) startMusic(0, dest);
+    if (dest) { startMusic(0, dest); startVoice(0, dest); }
     rec.start();
     var t0 = performance.now();
     function ex() {
       var t = (performance.now() - t0) / 1000;
       playhead = t;
-      if (t >= timeline.total) { drawAt(timeline.total); syncScrub(); try { rec.stop(); } catch (e) {} pauseVideos(); stopMusic(); $("exportBtn").disabled = false; $("playBtn").disabled = false; return; }
+      if (t >= timeline.total) { drawAt(timeline.total); syncScrub(); try { rec.stop(); } catch (e) {} pauseVideos(); stopMusic(); stopVoice(); $("exportBtn").disabled = false; $("playBtn").disabled = false; return; }
       syncVideos(t); drawAt(t); syncScrub();
       requestAnimationFrame(ex);
     }
@@ -1403,7 +1534,7 @@
   function setMusicBlob(blob, name) { var ac = ensureAudio(); if (!ac) return Promise.resolve(); return blob.arrayBuffer().then(function (b) { return ac.decodeAudioData(b); }).then(function (audio) { state.music = { buffer: audio, name: name || "music", blob: blob }; try { state.music.beat = analyzeBeats(audio); } catch (e) { state.music.beat = null; } $("musicLabel").textContent = "Music added ✓ — " + (name || ""); updateBeatUI(); }).catch(function () {}); }
 
   // ------------------------------------------------ read/apply settings
-  function settingsObj() { return { format: state.format, theme: state.theme, accent: state.accent, clip: state.clip, trans: state.trans, intro: state.intro, outro: state.outro, musicVol: state.musicVol, bannerMode: state.bannerMode, syncBeats: state.syncBeats, hookText: state.hookText, hookStyle: state.hookStyle, hookPos: state.hookPos, endHookText: state.endHookText, capStyle: state.capStyle }; }
+  function settingsObj() { return { format: state.format, theme: state.theme, accent: state.accent, clip: state.clip, trans: state.trans, intro: state.intro, outro: state.outro, musicVol: state.musicVol, bannerMode: state.bannerMode, syncBeats: state.syncBeats, hookText: state.hookText, hookStyle: state.hookStyle, hookPos: state.hookPos, endHookText: state.endHookText, capStyle: state.capStyle, voScript: state.voScript, voVolume: state.voVolume, duck: state.duck, ttsRate: state.ttsRate }; }
   function setV(id, v) { if (v != null) $(id).value = v; }
   function applySettings(d) {
     if (!d) return;
@@ -1422,6 +1553,10 @@
     if (d.hookPos) { state.hookPos = d.hookPos; $("f_hookPos").value = d.hookPos; }
     if (d.endHookText != null) { state.endHookText = d.endHookText; $("f_endhook").value = d.endHookText; }
     if (d.capStyle) { state.capStyle = d.capStyle; $("f_capStyle").value = d.capStyle; }
+    if (d.voScript != null) { state.voScript = d.voScript; $("vo_script").value = d.voScript; }
+    if (d.voVolume != null) { state.voVolume = d.voVolume; $("vo_vol").value = Math.round(d.voVolume * 100); }
+    if (d.duck != null) { state.duck = d.duck; $("vo_duck").checked = d.duck; }
+    if (d.ttsRate != null) { state.ttsRate = d.ttsRate; $("vo_rate").value = d.ttsRate; }
     updateHookChips();
   }
   function applyListing(L) { L = L || {}; setV("f_tagline", L.tagline); setV("f_address", L.address); setV("f_city", L.city); setV("f_price", L.price); setV("f_beds", L.beds); setV("f_baths", L.baths); setV("f_sqft", L.sqft); }
@@ -1484,6 +1619,7 @@
       iconBlob: state.brokerIcon ? state.brokerIcon.blob : null,
       musicBlob: state.music ? state.music.blob : null,
       musicName: state.music ? state.music.name : null,
+      voBlob: state.voice ? state.voice.blob : null,
       thumb: posterThumb()
     };
   }
@@ -1548,6 +1684,7 @@
     if (rec.bannerBlob) setBanner(rec.bannerBlob);
     if (rec.iconBlob) setBrokerIcon(rec.iconBlob);
     if (rec.musicBlob) setMusicBlob(rec.musicBlob, rec.musicName);
+    if (rec.voBlob) setVoiceBlob(rec.voBlob, "voiceover"); else clearVoice();
     dbPut("kv", rec.id, "lastOpen");
     rebuild(); drawAt(posterTime());
     setStatus("Opened — " + (rec.title || "project"), "ok");
@@ -1789,6 +1926,21 @@
     $("f_endhook").addEventListener("input", function () { state.endHookText = $("f_endhook").value; rebuild(); scheduleAutosave(); });
     $("f_capStyle").onchange = function () { state.capStyle = $("f_capStyle").value; rebuild(); scheduleAutosave(); };
     updateHookChips();
+
+    // voiceover
+    $("vo_script").value = state.voScript; $("vo_rate").value = state.ttsRate; $("vo_vol").value = Math.round(state.voVolume * 100); $("vo_duck").checked = state.duck;
+    $("vo_script").addEventListener("input", function () { state.voScript = $("vo_script").value; scheduleAutosave(); });
+    $("voWriteBtn").onclick = function () { var t = generateScript(); $("vo_script").value = t; state.voScript = t; scheduleAutosave(); setStatus("Script written from your listing — edit it, then record or import a voice.", "ok"); };
+    $("voPreviewBtn").onclick = previewVoice;
+    $("voStopPrevBtn").onclick = stopPreviewVoice;
+    $("vo_rate").oninput = function () { state.ttsRate = +$("vo_rate").value; };
+    $("voRecBtn").onclick = toggleRecord;
+    $("voImportBtn").onclick = function () { $("vo_importInput").click(); };
+    $("vo_importInput").onchange = function () { if (this.files[0]) setVoiceBlob(this.files[0], this.files[0].name); this.value = ""; };
+    $("voClearBtn").onclick = clearVoice;
+    $("vo_vol").oninput = function () { state.voVolume = (+$("vo_vol").value) / 100; };
+    $("vo_duck").onchange = function () { state.duck = $("vo_duck").checked; };
+    if ("speechSynthesis" in window) { loadTtsVoices(); speechSynthesis.onvoiceschanged = loadTtsVoices; }
     $("musicVol").oninput = function () { state.musicVol = (+$("musicVol").value) / 100; };
     ["f_tagline","f_address","f_city","f_price","f_beds","f_baths","f_sqft","f_name","f_title","f_brokerage","f_phone","f_email","f_license","f_cta"].forEach(function (id) {
       $(id).addEventListener("input", function () { rebuild(); scheduleAutosave(); updateHookChips(); });
