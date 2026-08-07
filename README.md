@@ -183,12 +183,12 @@ Everything is driven by one JSON file (see
   },
 
   "agent": {
-    "name": "Sara Beyersdorf",
-    "title": "Broker Associate",
-    "brokerage": "Sara Sells California",
+    "name": "James Beyersdorf",
+    "title": "Agent",
+    "brokerage": "Legacy Properties",
     "phone": "(555) 123-4567",
-    "email": "sara@sarasellscalifornia.com",
-    "license": "DRE #01234567",
+    "email": "james@legacyproperties.com",
+    "license": "DRE #02122175",
     "logo": "assets/logo.png"
   },
 

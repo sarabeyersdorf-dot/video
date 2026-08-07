@@ -158,9 +158,9 @@ export function buildProgram() {
         price: '$4,250,000', beds: 5, baths: 6, sqft: 6200,
       });
       Object.assign(project.agent, {
-        name: 'Your Name Here', title: 'Broker Associate',
-        brokerage: 'Your Brokerage', phone: '(555) 123-4567',
-        email: 'you@example.com', license: 'DRE #01234567',
+        name: 'James Beyersdorf', title: 'Agent',
+        brokerage: 'Legacy Properties', phone: '(555) 123-4567',
+        email: 'james@legacyproperties.com', license: 'DRE #02122175',
       });
       const captions = ['Grand Entrance', 'Open Living', 'Chef\'s Kitchen', 'Primary Suite', 'Infinity Pool'];
       project.photos.forEach((p, i) => (p.caption = captions[i] || null));
