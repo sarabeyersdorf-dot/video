@@ -325,10 +325,17 @@
             <input type="number" id="f_trans" min="0" max="1.5" step="0.1" value="0.8">
           </label>
         </div>
-        <div style="display:flex;gap:20px;flex-wrap:wrap">
+        <div style="display:flex;gap:20px;flex-wrap:wrap;margin-bottom:14px">
           <label class="toggle"><input type="checkbox" id="f_intro" checked> Intro title card</label>
           <label class="toggle"><input type="checkbox" id="f_outro" checked> Closing branding card</label>
         </div>
+        <label class="field">Animated lower-third banner
+          <select id="f_banner">
+            <option value="nameplate">Agent nameplate — animated (from Brand Kit)</option>
+            <option value="banner">My banner image — animated</option>
+            <option value="off">Off</option>
+          </select>
+        </label>
       </section>
     </div>
   </div>
@@ -347,6 +354,7 @@
     </div>
     <div class="modal-actions" style="margin-top:0;margin-bottom:16px">
       <button class="btn" id="libNewBtn">+ New project</button>
+      <button class="btn ghost" id="libExportBtn">Export current</button>
       <button class="btn ghost" id="libImportBtn">Import from file</button>
     </div>
     <div class="proj-grid" id="projectGrid"></div>
@@ -378,6 +386,8 @@
     <div class="modal-actions">
       <button class="btn primary" id="bkSaveBtn">Save Brand Kit</button>
       <button class="btn ghost" id="bkApplyBtn" title="Apply to the current video too">Apply to current</button>
+      <button class="btn ghost" id="bkExportBtn" title="Download a backup file">Back up to file</button>
+      <button class="btn ghost" id="bkImportBtn" title="Restore from a backup file">Restore</button>
       <button class="btn ghost" data-close="brandModal">Close</button>
     </div>
   </div>
@@ -391,6 +401,7 @@
 <input type="file" id="bkHeadshotInput" class="hidden-input" accept="image/*">
 <input type="file" id="bkBannerInput" class="hidden-input" accept="image/*">
 <input type="file" id="bkIconInput" class="hidden-input" accept="image/*">
+<input type="file" id="bkImportInput" class="hidden-input" accept="application/json,.json">
 
 <script>
 (function () {
@@ -430,8 +441,10 @@
     logo: null,          // {el,url,blob}
     headshot: null,      // {el,url,blob}
     banner: null,        // {el,url,blob}
+    brokerIcon: null,    // {el,url,blob}
     music: null,         // {buffer,name,blob}
-    musicVol: 0.7
+    musicVol: 0.7,
+    bannerMode: "nameplate" // off | nameplate | banner (animated lower-third)
   };
   var uid = 1;
   function newId() { return "p_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 7); }
@@ -778,11 +791,102 @@
       var bw = 92 * s, bh = bw * (ih / iw);
       ctx.save(); ctx.globalAlpha = 0.92; ctx.drawImage(ic, 26 * s, 26 * s, bw, bh); ctx.restore();
     }
-    if (state.banner && state.banner.el && state.banner.el.complete) {
-      var bn = state.banner.el, bnw = bn.naturalWidth || 1, bnh = bn.naturalHeight || 1;
-      var w = Math.min(W * 0.72, 540 * s), h = w * (bnh / bnw), x = (W - w) / 2, y = H - h - 42 * s;
-      ctx.save(); ctx.globalAlpha = 0.96; ctx.drawImage(bn, x, y, w, h); ctx.restore();
+  }
+
+  function roundRect(x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+  }
+
+  // Timing window for the animated lower-third: appears just after the intro,
+  // holds, then slides away. Returns null when the reel is too short to fit it.
+  function ltWindow() {
+    var start = (state.intro ? 3.0 : 0.35) + 0.5;
+    var hold = Math.min(4.2, timeline.total - start - 0.6);
+    if (hold < 1.4) return null;
+    return { start: start, hold: hold, ein: 0.55, eout: 0.5 };
+  }
+  // Animated agent nameplate / banner image lower-third.
+  function drawLowerThird(t) {
+    if (state.bannerMode === "off") return;
+    var win = ltWindow(); if (!win) return;
+    var end = win.start + win.hold;
+    if (t < win.start || t > end) return;
+    var appear = smooth(Math.max(0, Math.min(1, (t - win.start) / win.ein)));
+    var vanish = smooth(Math.max(0, Math.min(1, (end - t) / win.eout)));
+    var alpha = Math.min(appear, vanish);
+    if (alpha <= 0.001) return;
+    var W = canvas.width, H = canvas.height, s = W / 720;
+    var offY = (1 - appear) * 42 * s + (1 - vanish) * 26 * s;
+
+    var th = theme();
+    ctx.save();
+    ctx.globalAlpha = alpha;
+
+    if (state.bannerMode === "banner" && state.banner && state.banner.el && state.banner.el.complete) {
+      var bn = state.banner.el, bw = bn.naturalWidth || 1, bh = bn.naturalHeight || 1;
+      var w = Math.min(W * 0.74, 560 * s), h = w * (bh / bw), x = (W - w) / 2, y = H - h - 46 * s + offY;
+      ctx.drawImage(bn, x, y, w, h);
+      ctx.restore();
+      return;
     }
+
+    // nameplate (generated from agent info)
+    var A = agent();
+    var name = A.name || $("f_address").value || "";
+    var sub = [A.title || A.brokerage, A.phone].filter(Boolean).join("   •   ");
+    if (!sub) sub = A.brokerage || A.email || "";
+    if (!name && !sub) { ctx.restore(); return; }
+    var upper = th.upper;
+    var nameStr = upper ? name.toUpperCase() : name;
+    var titleFam = th.titleSerif ? SERIF : SANS;
+    var nameSize = 40 * s, subSize = 25 * s;
+    // measure
+    ctx.font = "700 " + nameSize + "px " + titleFam; var nW = ctx.measureText(nameStr).width;
+    ctx.font = "500 " + subSize + "px " + SANS; var sW = sub ? ctx.measureText(sub).width : 0;
+
+    var padX = 46 * s;
+    var hasHead = state.headshot && state.headshot.el && state.headshot.el.complete;
+    var hR = 34 * s;                       // headshot radius
+    var barW = 6 * s;
+    var gap = 16 * s;
+    var textLeft = padX + (hasHead ? (hR * 2 + 16 * s) : 0) + barW + 18 * s;
+    var blockW = Math.max(nW, sW);
+    var nameH = nameSize, subH = sub ? subSize : 0, lineGap = sub ? 12 * s : 0;
+    var blockH = nameH + lineGap + subH;
+    var boxX = padX - 16 * s;
+    var boxTop = H - 150 * s + offY;
+    var boxW = (textLeft - boxX) + blockW + 26 * s;
+    var boxH = blockH + 34 * s;
+
+    // scrim
+    ctx.fillStyle = "rgba(0,0,0,0.44)";
+    roundRect(boxX, boxTop, boxW, boxH, 14 * s); ctx.fill();
+
+    var cy = boxTop + boxH / 2;
+    // headshot chip
+    if (hasHead) {
+      var hx = padX + hR, hy = cy;
+      ctx.save(); ctx.beginPath(); ctx.arc(hx, hy, hR, 0, Math.PI * 2); ctx.clip();
+      var hd = state.headshot.el, sc = Math.max((2 * hR) / (hd.naturalWidth || 1), (2 * hR) / (hd.naturalHeight || 1));
+      var dw = (hd.naturalWidth || 1) * sc, dh = (hd.naturalHeight || 1) * sc;
+      ctx.drawImage(hd, hx - dw / 2, hy - dh / 2, dw, dh); ctx.restore();
+      ctx.strokeStyle = th.accent; ctx.lineWidth = 2 * s; ctx.beginPath(); ctx.arc(hx, hy, hR, 0, Math.PI * 2); ctx.stroke();
+    }
+    // accent bar (wipes to full height on entry)
+    var barX = textLeft - barW - 18 * s;
+    var barFull = blockH, barH = barFull * appear;
+    ctx.fillStyle = th.accent;
+    ctx.fillRect(barX, cy - barH / 2, barW, barH);
+    // text
+    var textTop = cy - blockH / 2;
+    ctx.textAlign = "left"; ctx.textBaseline = "top";
+    ctx.shadowColor = "rgba(0,0,0,0.5)"; ctx.shadowBlur = 5; ctx.shadowOffsetY = 2;
+    ctx.fillStyle = th.ink; ctx.font = "700 " + nameSize + "px " + titleFam;
+    ctx.fillText(nameStr, textLeft, textTop);
+    if (sub) { ctx.shadowBlur = 3; ctx.fillStyle = th.sub; ctx.font = "500 " + subSize + "px " + SANS; ctx.fillText(sub, textLeft, textTop + nameH + lineGap); }
+    ctx.restore();
   }
 
   function drawCaption(text, local, dur, W, H) {
@@ -840,6 +944,8 @@
       if (a > 0) { alpha = Math.max(0, Math.min(1, local / timeline.T)); }
       ctx.save(); ctx.globalAlpha = alpha; drawSeg(seg, local, W, H); ctx.restore();
     }
+    drawLowerThird(t);
+
     // open from black / close to black
     var fade = 0.5;
     if (t < fade) { ctx.fillStyle = "rgba(0,0,0," + (1 - t / fade) + ")"; ctx.fillRect(0, 0, W, H); }
@@ -981,13 +1087,11 @@
       var url = URL.createObjectURL(blob);
       var addr = ($("f_address").value || "listing").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
       var fname = "listing-reel-" + (addr || "video") + "-" + state.format + "." + ext;
-      var a = document.createElement("a");
-      a.href = url; a.download = fname;
-      document.body.appendChild(a); a.click(); a.remove();
-      // Persistent fallback in case the auto-download is blocked (e.g. embedded).
       var dl = $("dlLink"); dl.href = url; dl.download = fname; dl.style.display = "inline-flex";
       dl.textContent = "⬇ Save " + (blob.size / 1e6).toFixed(1) + " MB";
-      setStatus("Video ready — use Download if it didn't save automatically.", "ok");
+      saveFile(fname, blob).then(function (r) {
+        setStatus(r.status === "declined" ? "Export ready — use Download to save it." : "Video ready — " + (blob.size / 1e6).toFixed(1) + " MB.", "ok");
+      });
       exporting = false;
     };
 
@@ -1046,7 +1150,7 @@
   function setMusicBlob(blob, name) { var ac = ensureAudio(); if (!ac) return Promise.resolve(); return blob.arrayBuffer().then(function (b) { return ac.decodeAudioData(b); }).then(function (audio) { state.music = { buffer: audio, name: name || "music", blob: blob }; $("musicLabel").textContent = "Music added ✓ — " + (name || ""); }).catch(function () {}); }
 
   // ------------------------------------------------ read/apply settings
-  function settingsObj() { return { format: state.format, theme: state.theme, accent: state.accent, clip: state.clip, trans: state.trans, intro: state.intro, outro: state.outro, musicVol: state.musicVol }; }
+  function settingsObj() { return { format: state.format, theme: state.theme, accent: state.accent, clip: state.clip, trans: state.trans, intro: state.intro, outro: state.outro, musicVol: state.musicVol, bannerMode: state.bannerMode }; }
   function setV(id, v) { if (v != null) $(id).value = v; }
   function applySettings(d) {
     if (!d) return;
@@ -1058,6 +1162,7 @@
     if (d.intro != null) { state.intro = d.intro; $("f_intro").checked = d.intro; }
     if (d.outro != null) { state.outro = d.outro; $("f_outro").checked = d.outro; }
     if (d.musicVol != null) { state.musicVol = d.musicVol; $("musicVol").value = Math.round(d.musicVol * 100); }
+    if (d.bannerMode) { state.bannerMode = d.bannerMode; $("f_banner").value = d.bannerMode; }
   }
   function applyListing(L) { L = L || {}; setV("f_tagline", L.tagline); setV("f_address", L.address); setV("f_city", L.city); setV("f_price", L.price); setV("f_beds", L.beds); setV("f_baths", L.baths); setV("f_sqft", L.sqft); }
   function applyAgent(A) { A = A || {}; setV("f_name", A.name); setV("f_title", A.title); setV("f_brokerage", A.brokerage); setV("f_phone", A.phone); setV("f_email", A.email); setV("f_license", A.license); setV("f_cta", A.cta); }
@@ -1077,14 +1182,14 @@
     brandPrev("bk_logoPrev", brand.logoBlob); brandPrev("bk_headshotPrev", brand.headshotBlob);
     brandPrev("bk_bannerPrev", brand.bannerBlob); brandPrev("bk_iconPrev", brand.iconBlob);
     $("storageNote").textContent = storageOK
-      ? "Stored in this browser. On the shareable link, storage can be cleared between visits — use Projects › Export to keep a permanent copy."
-      : "This browser blocked local storage, so the Brand Kit won't persist here. Use the hosted/downloaded copy of the app, or Projects › Export.";
+      ? "Saved automatically in this browser and reused on every new video. On the shared link, storage can occasionally be cleared — click “Back up to file” for a permanent copy you can Restore in one click."
+      : "This browser blocked local storage. Use “Back up to file” and Restore, or the downloaded copy of the app.";
     openModal("brandModal");
   }
   function brandPrev(id, blob) { var el = $(id); el.innerHTML = ""; if (blob) { var im = document.createElement("img"); im.src = URL.createObjectURL(blob); el.appendChild(im); } }
   function saveBrandKit(applyNow) {
     brand.agent = collectBrandKit().agent;
-    dbPut("kv", brand, "brandkit").then(function () {}, function () {});
+    dbPut("kv", brand, "brandkit").then(function () {}, function () {}); mirrorBrandKit();
     if (applyNow) applyBrandKit();
     setStatus("Brand Kit saved.", "ok");
   }
@@ -1237,9 +1342,8 @@
       out.media = state.media.map(function (m) { return { kind: m.kind, name: m.name, motion: m.motion, caption: m.caption, dur: m.dur, data: urls[i++] }; });
       out.logo = state.logo ? urls[i++] : null; out.banner = state.banner ? urls[i++] : null; out.headshot = state.headshot ? urls[i++] : null; out.music = state.music ? urls[i++] : null;
       var blob = new Blob([JSON.stringify(out)], { type: "application/json" });
-      var a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = (rec.title || "listing-reel").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") + ".lrproj.json";
-      document.body.appendChild(a); a.click(); a.remove();
-      setStatus("Project file exported (photos included).", "ok");
+      var fn = (rec.title || "listing-reel").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") + ".lrproj.json";
+      saveFile(fn, blob).then(function () { setStatus("Project file exported (photos included).", "ok"); });
     });
   }
   function importProjectFile(file) {
@@ -1258,6 +1362,53 @@
     };
     r.readAsText(file);
   }
+
+  // ------------------------------------------------ reliable file saving
+  // Uses the viewer-consented downloads capability when present (<=16 MiB),
+  // otherwise a normal anchor download. Returns a promise.
+  function saveFile(filename, data) {
+    var size = (data && data.size != null) ? data.size : (data ? data.length || 0 : 0);
+    function fallback() {
+      var blob = (data && data.size != null) ? data : new Blob([data], { type: "application/octet-stream" });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement("a"); a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function () { try { URL.revokeObjectURL(url); } catch (e) {} }, 5000);
+      return { status: "fallback", url: url };
+    }
+    var cd = window.claude && window.claude.downloads;
+    if (cd && size > 0 && size <= 16 * 1024 * 1024) {
+      return cd.save({ filename: filename, data: data }).then(function () { return { status: "saved" }; },
+        function (e) { if (e && e.code === "declined") return { status: "declined" }; return fallback(); });
+    }
+    return Promise.resolve(fallback());
+  }
+
+  // ------------------------------------------------ brand kit backup (file)
+  function exportBrandKit() {
+    var bk = collectBrandKit();
+    var assets = [bk.logoBlob, bk.headshotBlob, bk.bannerBlob, bk.iconBlob];
+    Promise.all(assets.map(function (b) { return b ? blobToDataURL(b) : Promise.resolve(null); })).then(function (u) {
+      var out = { v: 1, agent: bk.agent, bannerMode: state.bannerMode, logo: u[0], headshot: u[1], banner: u[2], icon: u[3] };
+      saveFile("listing-reel-brand-kit.json", new Blob([JSON.stringify(out)], { type: "application/json" })).then(function () { setStatus("Brand Kit backed up to a file.", "ok"); });
+    });
+  }
+  function importBrandKit(file) {
+    var r = new FileReader();
+    r.onload = function () {
+      try {
+        var d = JSON.parse(r.result);
+        brand = { agent: d.agent || {}, logoBlob: d.logo ? dataURLToBlob(d.logo) : null, headshotBlob: d.headshot ? dataURLToBlob(d.headshot) : null, bannerBlob: d.banner ? dataURLToBlob(d.banner) : null, iconBlob: d.icon ? dataURLToBlob(d.icon) : null };
+        if (d.bannerMode) { state.bannerMode = d.bannerMode; $("f_banner").value = d.bannerMode; }
+        dbPut("kv", brand, "brandkit"); mirrorBrandKit();
+        openBrandModal(); applyBrandKit();
+        setStatus("Brand Kit imported.", "ok");
+      } catch (e) { setStatus("Could not read that Brand Kit file.", "err"); }
+    };
+    r.readAsText(file);
+  }
+  // Lightweight localStorage mirror (contact + bannerMode) as an extra safety net.
+  function mirrorBrandKit() { try { localStorage.setItem("lr_brand", JSON.stringify({ agent: (brand && brand.agent) || {}, bannerMode: state.bannerMode })); } catch (e) {} }
 
   // ------------------------------------------------ modal helpers
   function openModal(id) { $(id).classList.add("open"); }
@@ -1326,9 +1477,13 @@
     wireDrop("bk_iconDrop", "bkIconInput", function (fs) { if (fs[0]) { brand.iconBlob = fs[0]; brandPrev("bk_iconPrev", fs[0]); } });
     $("bkSaveBtn").onclick = function () { saveBrandKit(true); closeModal("brandModal"); };
     $("bkApplyBtn").onclick = function () { saveBrandKit(true); };
+    $("bkExportBtn").onclick = function () { saveBrandKit(false); exportBrandKit(); };
+    $("bkImportBtn").onclick = function () { $("bkImportInput").click(); };
+    $("bkImportInput").onchange = function () { if (this.files[0]) importBrandKit(this.files[0]); this.value = ""; };
 
     // library modal
     $("libNewBtn").onclick = function () { newProject(); closeModal("libraryModal"); };
+    $("libExportBtn").onclick = function () { exportProjectFile(); };
     $("libImportBtn").onclick = function () { $("projInput").click(); };
     $("projInput").onchange = function () { if ($("projInput").files[0]) importProjectFile($("projInput").files[0]); $("projInput").value = ""; };
 
@@ -1344,6 +1499,8 @@
     $("f_trans").onchange = function () { state.trans = Math.max(0, Math.min(1.5, +$("f_trans").value || 0)); rebuild(); scheduleAutosave(); };
     $("f_intro").onchange = function () { state.intro = $("f_intro").checked; rebuild(); scheduleAutosave(); };
     $("f_outro").onchange = function () { state.outro = $("f_outro").checked; rebuild(); scheduleAutosave(); };
+    $("f_banner").value = state.bannerMode;
+    $("f_banner").onchange = function () { state.bannerMode = $("f_banner").value; rebuild(); scheduleAutosave(); };
     $("musicVol").oninput = function () { state.musicVol = (+$("musicVol").value) / 100; };
     ["f_tagline","f_address","f_city","f_price","f_beds","f_baths","f_sqft","f_name","f_title","f_brokerage","f_phone","f_email","f_license","f_cta"].forEach(function (id) {
       $(id).addEventListener("input", function () { rebuild(); scheduleAutosave(); });
@@ -1357,6 +1514,7 @@
     // boot: verify storage, load brand kit, restore last project
     idb().then(function () { storageOK = true; }, function () { storageOK = false; });
     loadBrandKit().then(function () {
+      if (!brand.agent) { try { var m = JSON.parse(localStorage.getItem("lr_brand") || "null"); if (m) { brand.agent = m.agent; if (m.bannerMode) { state.bannerMode = m.bannerMode; $("f_banner").value = m.bannerMode; } } } catch (e) {} }
       if (brand.agent) applyAgent(brand.agent);
       if (brand.logoBlob) setLogo(brand.logoBlob);
       if (brand.bannerBlob) setBanner(brand.bannerBlob);
