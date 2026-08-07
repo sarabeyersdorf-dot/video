@@ -303,7 +303,11 @@
 
       <section class="card">
         <h2>Your branding</h2>
-        <p class="desc">Shown on the closing call-to-action card.</p>
+        <p class="desc">Pick whose branding appears on this video — or edit either profile in the Brand Kit.</p>
+        <div class="seg" id="brandSeg" role="group" aria-label="Branding profile" style="margin-bottom:14px;width:100%">
+          <button type="button" data-profile="sara" aria-pressed="false" style="flex:1">Sara Cooper</button>
+          <button type="button" data-profile="james" aria-pressed="true" style="flex:1">James Beyersdorf</button>
+        </div>
         <div class="fields">
           <label class="field">Name<input type="text" id="f_name" placeholder="James Beyersdorf"></label>
           <label class="field">Title<input type="text" id="f_title" placeholder="Agent"></label>
@@ -479,8 +483,12 @@
 <div class="modal" id="brandModal" role="dialog" aria-modal="true" aria-label="Brand Kit">
   <div class="sheet">
     <div class="sheet-head">
-      <div><h2>Brand Kit</h2><p class="desc">Stored once and reused on every new video. Saved in this browser.</p></div>
+      <div><h2>Brand Kit</h2><p class="desc">Two profiles &mdash; Sara &amp; James. Pick one to edit; both are saved and reused.</p></div>
       <button class="x" data-close="brandModal" aria-label="Close">&times;</button>
+    </div>
+    <div class="seg" id="bkProfileSeg" role="group" aria-label="Edit profile" style="width:100%;margin-bottom:16px">
+      <button type="button" data-profile="sara" aria-pressed="false" style="flex:1">Sara Cooper</button>
+      <button type="button" data-profile="james" aria-pressed="true" style="flex:1">James Beyersdorf</button>
     </div>
     <div class="fields">
       <label class="field">Name<input type="text" id="bk_name" placeholder="James Beyersdorf"></label>
@@ -571,7 +579,8 @@
     voice: null,             // {blob,buffer,name,duration}
     voVolume: 1.0,
     duck: true,              // lower music under the voiceover
-    ttsRate: 1.0
+    ttsRate: 1.0,
+    brandProfile: "james" // which saved profile brands this video
   };
   var uid = 1;
   function newId() { return "p_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 7); }
@@ -1557,7 +1566,7 @@
   function setMusicBlob(blob, name) { var ac = ensureAudio(); if (!ac) return Promise.resolve(); return blob.arrayBuffer().then(function (b) { return ac.decodeAudioData(b); }).then(function (audio) { state.music = { buffer: audio, name: name || "music", blob: blob }; try { state.music.beat = analyzeBeats(audio); } catch (e) { state.music.beat = null; } $("musicLabel").textContent = "Music added ✓ — " + (name || ""); updateBeatUI(); }).catch(function () {}); }
 
   // ------------------------------------------------ read/apply settings
-  function settingsObj() { return { format: state.format, theme: state.theme, accent: state.accent, clip: state.clip, trans: state.trans, intro: state.intro, outro: state.outro, musicVol: state.musicVol, bannerMode: state.bannerMode, syncBeats: state.syncBeats, hookText: state.hookText, hookStyle: state.hookStyle, hookPos: state.hookPos, endHookText: state.endHookText, capStyle: state.capStyle, voScript: state.voScript, voVolume: state.voVolume, duck: state.duck, ttsRate: state.ttsRate }; }
+  function settingsObj() { return { format: state.format, theme: state.theme, accent: state.accent, clip: state.clip, trans: state.trans, intro: state.intro, outro: state.outro, musicVol: state.musicVol, bannerMode: state.bannerMode, syncBeats: state.syncBeats, hookText: state.hookText, hookStyle: state.hookStyle, hookPos: state.hookPos, endHookText: state.endHookText, capStyle: state.capStyle, voScript: state.voScript, voVolume: state.voVolume, duck: state.duck, ttsRate: state.ttsRate, brandProfile: state.brandProfile }; }
   function setV(id, v) { if (v != null) $(id).value = v; }
   function applySettings(d) {
     if (!d) return;
@@ -1580,48 +1589,86 @@
     if (d.voVolume != null) { state.voVolume = d.voVolume; $("vo_vol").value = Math.round(d.voVolume * 100); }
     if (d.duck != null) { state.duck = d.duck; $("vo_duck").checked = d.duck; }
     if (d.ttsRate != null) { state.ttsRate = d.ttsRate; $("vo_rate").value = d.ttsRate; }
+    if (d.brandProfile) { state.brandProfile = d.brandProfile; applyProfile(d.brandProfile); }
     updateHookChips();
   }
   function applyListing(L) { L = L || {}; setV("f_tagline", L.tagline); setV("f_address", L.address); setV("f_city", L.city); setV("f_price", L.price); setV("f_beds", L.beds); setV("f_baths", L.baths); setV("f_sqft", L.sqft); }
   function applyAgent(A) { A = A || {}; setV("f_name", A.name); setV("f_title", A.title); setV("f_brokerage", A.brokerage); setV("f_phone", A.phone); setV("f_email", A.email); setV("f_license", A.license); setV("f_cta", A.cta); }
 
-  // ------------------------------------------------ brand kit
-  function collectBrandKit() {
-    return {
-      agent: { name: $("bk_name").value, title: $("bk_title").value, brokerage: $("bk_brokerage").value, phone: $("bk_phone").value, email: $("bk_email").value, license: $("bk_license").value, cta: $("bk_cta").value },
-      logoBlob: brand.logoBlob || null, headshotBlob: brand.headshotBlob || null, bannerBlob: brand.bannerBlob || null, iconBlob: brand.iconBlob || null
-    };
+  // ------------------------------------------------ brand kit (two profiles)
+  var PROFILE_KEYS = ["sara", "james"];
+  var PROFILE_DEFAULTS = {
+    sara:  { name: "Sara Cooper", title: "Broker", brokerage: "Legacy Properties", phone: "", email: "", license: "DRE #02141987", cta: "Schedule a Private Showing" },
+    james: { name: "James Beyersdorf", title: "Agent", brokerage: "Legacy Properties", phone: "", email: "", license: "DRE #02122175", cta: "Schedule a Private Showing" }
+  };
+  var brand = {};        // { activeProfile, profiles:{sara,james}, logoBlob, bannerBlob, iconBlob }
+  var bkEditKey = "james";
+  function ensureProfiles() {
+    if (!brand.profiles) brand.profiles = {};
+    if (brand.agent) { // migrate a legacy single-agent brand kit into James
+      brand.profiles.james = Object.assign({}, PROFILE_DEFAULTS.james, brand.agent);
+      if (brand.headshotBlob) brand.profiles.james.headshotBlob = brand.headshotBlob;
+      delete brand.agent; delete brand.headshotBlob;
+    }
+    PROFILE_KEYS.forEach(function (k) { if (!brand.profiles[k]) brand.profiles[k] = Object.assign({}, PROFILE_DEFAULTS[k]); });
+    if (!brand.activeProfile) brand.activeProfile = "james";
   }
-  var brand = {};
+  function profile(k) { ensureProfiles(); return brand.profiles[k || brand.activeProfile]; }
+  function brandPrev(id, blob) { var el = $(id); if (!el) return; el.innerHTML = ""; if (blob) { var im = document.createElement("img"); im.src = URL.createObjectURL(blob); el.appendChild(im); } }
+
+  function fieldsToProfile(k) {
+    var p = profile(k);
+    p.name = $("bk_name").value; p.title = $("bk_title").value; p.brokerage = $("bk_brokerage").value;
+    p.phone = $("bk_phone").value; p.email = $("bk_email").value; p.license = $("bk_license").value; p.cta = $("bk_cta").value;
+  }
+  function profileToFields(k) {
+    var p = profile(k);
+    setV("bk_name", p.name); setV("bk_title", p.title); setV("bk_brokerage", p.brokerage);
+    setV("bk_phone", p.phone); setV("bk_email", p.email); setV("bk_license", p.license); setV("bk_cta", p.cta);
+    brandPrev("bk_headshotPrev", p.headshotBlob);
+    Array.prototype.forEach.call($("bkProfileSeg").children, function (btn) { btn.setAttribute("aria-pressed", btn.dataset.profile === k ? "true" : "false"); });
+  }
   function openBrandModal() {
-    var a = brand.agent || {};
-    setV("bk_name", a.name); setV("bk_title", a.title); setV("bk_brokerage", a.brokerage);
-    setV("bk_phone", a.phone); setV("bk_email", a.email); setV("bk_license", a.license); setV("bk_cta", a.cta);
-    brandPrev("bk_logoPrev", brand.logoBlob); brandPrev("bk_headshotPrev", brand.headshotBlob);
-    brandPrev("bk_bannerPrev", brand.bannerBlob); brandPrev("bk_iconPrev", brand.iconBlob);
+    ensureProfiles(); bkEditKey = brand.activeProfile;
+    profileToFields(bkEditKey);
+    brandPrev("bk_logoPrev", brand.logoBlob); brandPrev("bk_bannerPrev", brand.bannerBlob); brandPrev("bk_iconPrev", brand.iconBlob);
     $("storageNote").textContent = storageOK
-      ? "Saved automatically in this browser and reused on every new video. On the shared link, storage can occasionally be cleared — click “Back up to file” for a permanent copy you can Restore in one click."
+      ? "Both profiles are saved automatically and reused on every new video. On the shared link, storage can occasionally be cleared — click “Back up to file” for a permanent copy you can Restore in one click."
       : "This browser blocked local storage. Use “Back up to file” and Restore, or the downloaded copy of the app.";
     openModal("brandModal");
   }
-  function brandPrev(id, blob) { var el = $(id); el.innerHTML = ""; if (blob) { var im = document.createElement("img"); im.src = URL.createObjectURL(blob); el.appendChild(im); } }
+  function switchEditProfile(k) { fieldsToProfile(bkEditKey); bkEditKey = k; profileToFields(k); }
+
   function saveBrandKit(applyNow) {
-    brand.agent = collectBrandKit().agent;
+    fieldsToProfile(bkEditKey); brand.activeProfile = bkEditKey;
     dbPut("kv", brand, "brandkit").then(function () {}, function () {}); mirrorBrandKit();
-    if (applyNow) applyBrandKit();
-    setStatus("Brand Kit saved.", "ok");
+    if (applyNow) applyProfile(bkEditKey);
+    rebuild(); scheduleAutosave();
+    setStatus("Brand Kit saved (" + profile(bkEditKey).name + ").", "ok");
   }
+
+  // Apply one profile to the CURRENT video: text fields + that profile's headshot.
+  function applyProfile(key) {
+    ensureProfiles(); if (!brand.profiles[key]) key = brand.activeProfile;
+    var p = profile(key); state.brandProfile = key;
+    applyAgent(p);
+    if (p.headshotBlob) setHeadshot(p.headshotBlob); else { state.headshot = null; }
+    updateBrandSeg();
+  }
+  function updateBrandSeg() { var seg = $("brandSeg"); if (!seg) return; Array.prototype.forEach.call(seg.children, function (b) { b.setAttribute("aria-pressed", b.dataset.profile === state.brandProfile ? "true" : "false"); }); }
+  function selectBrandProfile(key) { applyProfile(key); rebuild(); drawAt(posterTime()); scheduleAutosave(); setStatus("Branding: " + profile(key).name, "ok"); }
+
+  // Applied to a fresh project: shared assets + the active profile.
   function applyBrandKit() {
-    if (!brand) return;
-    if (brand.agent) applyAgent(brand.agent);
+    ensureProfiles();
     if (brand.logoBlob) setLogo(brand.logoBlob, "brand kit");
-    if (brand.headshotBlob) setHeadshot(brand.headshotBlob);
     if (brand.bannerBlob) setBanner(brand.bannerBlob);
     if (brand.iconBlob) setBrokerIcon(brand.iconBlob);
+    applyProfile(state.brandProfile || brand.activeProfile);
     rebuild(); scheduleAutosave();
   }
   function loadBrandKit() {
-    return dbGet("kv", "brandkit").then(function (bk) { if (bk) brand = bk; }, function () {});
+    return dbGet("kv", "brandkit").then(function (bk) { if (bk) brand = bk; ensureProfiles(); }, function () { ensureProfiles(); });
   }
 
   // ------------------------------------------------ project records
@@ -1806,10 +1853,12 @@
 
   // ------------------------------------------------ brand kit backup (file)
   function exportBrandKit() {
-    var bk = collectBrandKit();
-    var assets = [bk.logoBlob, bk.headshotBlob, bk.bannerBlob, bk.iconBlob];
-    Promise.all(assets.map(function (b) { return b ? blobToDataURL(b) : Promise.resolve(null); })).then(function (u) {
-      var out = { v: 1, agent: bk.agent, bannerMode: state.bannerMode, logo: u[0], headshot: u[1], banner: u[2], icon: u[3] };
+    fieldsToProfile(bkEditKey); ensureProfiles();
+    var shared = [brand.logoBlob, brand.bannerBlob, brand.iconBlob];
+    var heads = PROFILE_KEYS.map(function (k) { return brand.profiles[k].headshotBlob || null; });
+    Promise.all(shared.concat(heads).map(function (bl) { return bl ? blobToDataURL(bl) : Promise.resolve(null); })).then(function (u) {
+      var out = { v: 2, activeProfile: brand.activeProfile, bannerMode: state.bannerMode, logo: u[0], banner: u[1], icon: u[2], profiles: {} };
+      PROFILE_KEYS.forEach(function (k, i) { var p = brand.profiles[k]; out.profiles[k] = { name: p.name, title: p.title, brokerage: p.brokerage, phone: p.phone, email: p.email, license: p.license, cta: p.cta, headshot: u[3 + i] }; });
       saveFile("listing-reel-brand-kit.json", new Blob([JSON.stringify(out)], { type: "application/json" })).then(function () { setStatus("Brand Kit backed up to a file.", "ok"); });
     });
   }
@@ -1818,8 +1867,12 @@
     r.onload = function () {
       try {
         var d = JSON.parse(r.result);
-        brand = { agent: d.agent || {}, logoBlob: d.logo ? dataURLToBlob(d.logo) : null, headshotBlob: d.headshot ? dataURLToBlob(d.headshot) : null, bannerBlob: d.banner ? dataURLToBlob(d.banner) : null, iconBlob: d.icon ? dataURLToBlob(d.icon) : null };
+        brand = { activeProfile: d.activeProfile || "james", logoBlob: d.logo ? dataURLToBlob(d.logo) : null, bannerBlob: d.banner ? dataURLToBlob(d.banner) : null, iconBlob: d.icon ? dataURLToBlob(d.icon) : null, profiles: {} };
+        if (d.profiles) {
+          PROFILE_KEYS.forEach(function (k) { var p = d.profiles[k] || PROFILE_DEFAULTS[k]; brand.profiles[k] = { name: p.name, title: p.title, brokerage: p.brokerage, phone: p.phone, email: p.email, license: p.license, cta: p.cta, headshotBlob: p.headshot ? dataURLToBlob(p.headshot) : null }; });
+        } else if (d.agent) { brand.profiles.james = Object.assign({}, PROFILE_DEFAULTS.james, d.agent); if (d.headshot) brand.profiles.james.headshotBlob = dataURLToBlob(d.headshot); }
         if (d.bannerMode) { state.bannerMode = d.bannerMode; $("f_banner").value = d.bannerMode; }
+        ensureProfiles();
         dbPut("kv", brand, "brandkit"); mirrorBrandKit();
         openBrandModal(); applyBrandKit();
         setStatus("Brand Kit imported.", "ok");
@@ -1827,8 +1880,14 @@
     };
     r.readAsText(file);
   }
-  // Lightweight localStorage mirror (contact + bannerMode) as an extra safety net.
-  function mirrorBrandKit() { try { localStorage.setItem("lr_brand", JSON.stringify({ agent: (brand && brand.agent) || {}, bannerMode: state.bannerMode })); } catch (e) {} }
+  // Lightweight localStorage mirror (both profiles' text + active + bannerMode).
+  function mirrorBrandKit() {
+    try {
+      ensureProfiles(); var pj = {};
+      PROFILE_KEYS.forEach(function (k) { var p = brand.profiles[k]; pj[k] = { name: p.name, title: p.title, brokerage: p.brokerage, phone: p.phone, email: p.email, license: p.license, cta: p.cta }; });
+      localStorage.setItem("lr_brand", JSON.stringify({ profiles: pj, activeProfile: brand.activeProfile, bannerMode: state.bannerMode }));
+    } catch (e) {}
+  }
 
   // ------------------------------------------------ modal helpers
   function openModal(id) { $(id).classList.add("open"); }
@@ -1911,7 +1970,7 @@
 
     // brand kit modal
     wireDrop("bk_logoDrop", "bkLogoInput", function (fs) { if (fs[0]) { brand.logoBlob = fs[0]; brandPrev("bk_logoPrev", fs[0]); } });
-    wireDrop("bk_headshotDrop", "bkHeadshotInput", function (fs) { if (fs[0]) { brand.headshotBlob = fs[0]; brandPrev("bk_headshotPrev", fs[0]); } });
+    wireDrop("bk_headshotDrop", "bkHeadshotInput", function (fs) { if (fs[0]) { profile(bkEditKey).headshotBlob = fs[0]; brandPrev("bk_headshotPrev", fs[0]); } });
     wireDrop("bk_bannerDrop", "bkBannerInput", function (fs) { if (fs[0]) { brand.bannerBlob = fs[0]; brandPrev("bk_bannerPrev", fs[0]); } });
     wireDrop("bk_iconDrop", "bkIconInput", function (fs) { if (fs[0]) { brand.iconBlob = fs[0]; brandPrev("bk_iconPrev", fs[0]); } });
     $("bkSaveBtn").onclick = function () { saveBrandKit(true); closeModal("brandModal"); };
@@ -1943,6 +2002,8 @@
     $("f_sync").checked = state.syncBeats;
     $("f_sync").onchange = function () { state.syncBeats = $("f_sync").checked; rebuild(); scheduleAutosave(); };
     $("montageBtn").onclick = autoMontage;
+    Array.prototype.forEach.call($("brandSeg").children, function (btn) { btn.onclick = function () { selectBrandProfile(btn.dataset.profile); }; });
+    Array.prototype.forEach.call($("bkProfileSeg").children, function (btn) { btn.onclick = function () { switchEditProfile(btn.dataset.profile); }; });
     $("f_hook").value = state.hookText; $("f_hookStyle").value = state.hookStyle; $("f_hookPos").value = state.hookPos; $("f_endhook").value = state.endHookText; $("f_capStyle").value = state.capStyle;
     $("f_hook").addEventListener("input", function () { state.hookText = $("f_hook").value; rebuild(); scheduleAutosave(); });
     $("f_hookStyle").onchange = function () { state.hookStyle = $("f_hookStyle").value; rebuild(); scheduleAutosave(); };
@@ -1978,12 +2039,16 @@
     // boot: verify storage, load brand kit, restore last project
     idb().then(function () { storageOK = true; }, function () { storageOK = false; });
     loadBrandKit().then(function () {
-      if (!brand.agent) { try { var m = JSON.parse(localStorage.getItem("lr_brand") || "null"); if (m) { brand.agent = m.agent; if (m.bannerMode) { state.bannerMode = m.bannerMode; $("f_banner").value = m.bannerMode; } } } catch (e) {} }
-      if (brand.agent) applyAgent(brand.agent);
+      // localStorage fallback for the text profiles if IndexedDB was empty
+      try {
+        var m = JSON.parse(localStorage.getItem("lr_brand") || "null");
+        if (m && m.profiles) { PROFILE_KEYS.forEach(function (k) { if (m.profiles[k]) brand.profiles[k] = Object.assign({}, brand.profiles[k], m.profiles[k]); }); if (m.activeProfile) brand.activeProfile = m.activeProfile; if (m.bannerMode) { state.bannerMode = m.bannerMode; $("f_banner").value = m.bannerMode; } }
+      } catch (e) {}
+      ensureProfiles();
       if (brand.logoBlob) setLogo(brand.logoBlob);
       if (brand.bannerBlob) setBanner(brand.bannerBlob);
-      if (brand.headshotBlob) setHeadshot(brand.headshotBlob);
       if (brand.iconBlob) setBrokerIcon(brand.iconBlob);
+      applyProfile(brand.activeProfile);
       return dbGet("kv", "lastOpen");
     }).then(function (lastId) {
       if (lastId) return dbGet("projects", lastId).then(function (rec) { if (rec) { openRecord(rec); return true; } });
