@@ -1,0 +1,185 @@
+<title>ListingReel Studio — Team Guide</title>
+<style>
+  /* Theme-aware. Light is the base palette; dark redefines only tokens. */
+  :root {
+    --bg: #FBF9F4;
+    --panel: #FFFFFF;
+    --panel-2: #F6F2E9;
+    --ink: #1A1712;
+    --muted: #6E6656;
+    --faint: #9A9384;
+    --line: #E8E1D3;
+    --line-2: #DcD3C0;
+    --accent: #A9772C;
+    --accent-ink: #FFFFFF;
+    --accent-soft: #F3E9D4;
+    --good: #3E7D5A;
+    --serif: Georgia, "Iowan Old Style", "Times New Roman", serif;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --shadow: 0 1px 2px rgba(26,23,18,.05), 0 12px 30px -18px rgba(26,23,18,.25);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0F1013; --panel: #171920; --panel-2: #1E212A; --ink: #F1F2F5; --muted: #9CA2AD;
+      --faint: #6C7380; --line: #262B34; --line-2: #333A45; --accent: #CBA664; --accent-ink: #16120a;
+      --accent-soft: #241d10; --good: #5FB98B; --shadow: 0 1px 2px rgba(0,0,0,.4), 0 20px 50px -24px rgba(0,0,0,.8);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0F1013; --panel: #171920; --panel-2: #1E212A; --ink: #F1F2F5; --muted: #9CA2AD;
+    --faint: #6C7380; --line: #262B34; --line-2: #333A45; --accent: #CBA664; --accent-ink: #16120a;
+    --accent-soft: #241d10; --good: #5FB98B; --shadow: 0 1px 2px rgba(0,0,0,.4), 0 20px 50px -24px rgba(0,0,0,.8);
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: var(--sans); font-size: 17px; line-height: 1.65; -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 800px; margin: 0 auto; padding: 40px clamp(18px, 4vw, 40px) 80px; }
+
+  /* header */
+  .eyebrow { font-size: 12px; letter-spacing: 2.5px; text-transform: uppercase; color: var(--accent); font-weight: 700; }
+  h1 { font-family: var(--serif); font-weight: 600; font-size: clamp(30px, 6vw, 46px); line-height: 1.08; margin: 12px 0 10px; text-wrap: balance; letter-spacing: .2px; }
+  .lede { font-size: clamp(17px, 2.4vw, 20px); color: var(--muted); margin: 0 0 26px; max-width: 62ch; }
+  .cta {
+    display: inline-flex; align-items: center; gap: 9px; text-decoration: none;
+    background: var(--accent); color: var(--accent-ink); font-weight: 650; font-size: 16px;
+    padding: 12px 22px; border-radius: 11px; box-shadow: var(--shadow);
+  }
+  .cta:hover { filter: brightness(1.05); }
+  .cta .arrow { transition: transform .15s; }
+  .cta:hover .arrow { transform: translateX(3px); }
+  .url { font-family: var(--mono); font-size: 12.5px; color: var(--faint); margin-top: 12px; word-break: break-all; }
+
+  hr.rule { border: 0; border-top: 1px solid var(--line); margin: 44px 0; }
+
+  h2 { font-family: var(--serif); font-weight: 600; font-size: clamp(22px, 4vw, 28px); margin: 46px 0 6px; letter-spacing: .2px; text-wrap: balance; }
+  h2 .num { color: var(--accent); font-variant-numeric: tabular-nums; }
+  .sub { color: var(--muted); margin: 0 0 22px; }
+  p { margin: 0 0 16px; }
+  strong { font-weight: 650; }
+
+  /* numbered steps */
+  ol.steps { list-style: none; counter-reset: s; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 16px; }
+  ol.steps li { counter-increment: s; position: relative; padding: 16px 18px 16px 62px; background: var(--panel); border: 1px solid var(--line); border-radius: 13px; box-shadow: var(--shadow); }
+  ol.steps li::before {
+    content: counter(s); position: absolute; left: 16px; top: 16px; width: 32px; height: 32px;
+    background: var(--accent-soft); color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 15px; font-variant-numeric: tabular-nums;
+  }
+  ol.steps li h3 { margin: 2px 0 4px; font-size: 17px; font-weight: 650; }
+  ol.steps li p { margin: 0; color: var(--muted); font-size: 15.5px; }
+
+  /* feature grid */
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 8px; }
+  @media (max-width: 640px) { .grid { grid-template-columns: 1fr; } }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 13px; padding: 18px; box-shadow: var(--shadow); }
+  .card h3 { margin: 0 0 6px; font-size: 16.5px; font-weight: 650; display: flex; align-items: baseline; gap: 8px; }
+  .card h3 .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); flex: none; transform: translateY(-2px); }
+  .card p { margin: 0; color: var(--muted); font-size: 14.5px; line-height: 1.55; }
+
+  /* tips / callouts */
+  .tips { display: flex; flex-direction: column; gap: 12px; }
+  .tip { border-left: 3px solid var(--accent); background: var(--panel-2); border-radius: 0 11px 11px 0; padding: 13px 16px; }
+  .tip b { color: var(--ink); }
+  .tip p { margin: 0; color: var(--muted); font-size: 15px; }
+  .note { border-left-color: var(--line-2); }
+
+  /* table */
+  .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 13px; box-shadow: var(--shadow); }
+  table { border-collapse: collapse; width: 100%; font-size: 15px; background: var(--panel); }
+  th, td { text-align: left; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+  th { font-family: var(--sans); font-size: 12px; letter-spacing: 1px; text-transform: uppercase; color: var(--faint); font-weight: 700; }
+  tr:last-child td { border-bottom: 0; }
+  td.where { color: var(--accent); font-weight: 600; white-space: nowrap; }
+
+  footer { margin-top: 56px; padding-top: 22px; border-top: 1px solid var(--line); color: var(--faint); font-size: 13.5px; }
+  footer b { color: var(--muted); }
+  .legal { margin-top: 10px; font-size: 12px; line-height: 1.6; color: var(--faint); }
+  a { color: var(--accent); }
+</style>
+
+<div class="wrap">
+  <div class="eyebrow">Team Guide</div>
+  <h1>Make a cinematic listing video&nbsp;in&nbsp;minutes</h1>
+  <p class="lede">ListingReel Studio turns your listing photos and clips into a branded marketing video for Reels, TikTok, YouTube, and the MLS — right in your browser, free, with nothing to install.</p>
+  <a class="cta" href="https://claude.ai/code/artifact/4b3f823b-7c3e-425d-b32f-3c3aba69fcb6" target="_blank" rel="noopener">Open ListingReel Studio <span class="arrow">&rarr;</span></a>
+  <div class="url">claude.ai/code/artifact/4b3f823b-7c3e-425d-b32f-3c3aba69fcb6</div>
+
+  <hr class="rule">
+
+  <h2>What it is</h2>
+  <p class="sub">The short version.</p>
+  <p>Drop in a listing's photos (and any drone or walk-through clips), add the price and your contact info, pick a look, and export a polished video. It runs entirely on your own computer — <strong>client photos never get uploaded anywhere</strong> — and you can share this same link with anyone on the team so they can make their own.</p>
+
+  <h2><span class="num">5</span>-minute first video</h2>
+  <p class="sub">The whole workflow, start to finish.</p>
+  <ol class="steps">
+    <li><h3>Open the app</h3><p>Use Chrome, Safari, or Edge. Bookmark the link so it's one click next time.</p></li>
+    <li><h3>Add your photos</h3><p>Drag 6–12 listing photos into <b>Photos &amp; footage</b>. They play in the order shown — drag to reorder, or drop in a drone/walk-through clip too.</p></li>
+    <li><h3>Fill in the listing</h3><p>Address, city, price, beds / baths / sq ft. These appear on the opening title card.</p></li>
+    <li><h3>Add your branding</h3><p>Name, brokerage, phone. Set this once in the <b>Brand Kit</b> and it auto-fills every future video.</p></li>
+    <li><h3>Pick a look</h3><p>Choose a theme (Luxe, Modern, Minimal, Bold) and a format — Reel 9:16 for Reels/TikTok, Square for the feed, or Wide for YouTube/MLS.</p></li>
+    <li><h3>Press Export</h3><p>Preview with ▶ first if you like, then hit <b>Export</b>. Your video downloads, ready to post.</p></li>
+  </ol>
+
+  <h2>What you can do</h2>
+  <p class="sub">Everything's optional — use what fits the listing.</p>
+  <div class="grid">
+    <div class="card"><h3><span class="dot"></span>Auto-montage from video</h3><p>Drop several raw clips, choose a length, and the app finds the best moment in each and cuts them together for you.</p></div>
+    <div class="card"><h3><span class="dot"></span>Hooks &amp; captions</h3><p>A punchy opening hook — "JUST LISTED", the price, "4 BED · 3 BA" — animates on in the first second. Tap a suggestion or type your own, and add captions per photo.</p></div>
+    <div class="card"><h3><span class="dot"></span>Voiceover</h3><p>The app writes a narration script from your listing. Record it in your own voice in one tap, or import an AI voice — it's mixed under the music.</p></div>
+    <div class="card"><h3><span class="dot"></span>Music &amp; beat-sync</h3><p>Drop in a track and switch on "Sync cuts to the beat" so every transition lands on the beat. Free-music links are built in.</p></div>
+    <div class="card"><h3><span class="dot"></span>Brand Kit</h3><p>Store your logo, headshot, animated nameplate, and contact info once — it's remembered and applied to every new video.</p></div>
+    <div class="card"><h3><span class="dot"></span>Saved projects</h3><p>Your work saves automatically as drafts and finals — photos included. Reopen and tweak anytime.</p></div>
+    <div class="card"><h3><span class="dot"></span>One-click multi-format</h3><p>Tick Reel + Square + Wide and export all three sizes from a single build. No re-editing.</p></div>
+    <div class="card"><h3><span class="dot"></span>Themes &amp; branding</h3><p>Four polished themes and your own accent color, with a live preview as you build.</p></div>
+  </div>
+
+  <h2>Pro tips</h2>
+  <p class="sub">Little things that make a big difference.</p>
+  <div class="tips">
+    <div class="tip"><p><b>Keep the tab in front while exporting.</b> Video records in real time, so a 30-second reel takes about 30 seconds — don't switch away mid-export. Exporting three sizes takes roughly 3× as long.</p></div>
+    <div class="tip"><p><b>Set up your Brand Kit first — then back it up.</b> Add your logo, headshot, and contact info, hit Save, then click <b>Back up to file</b>. That's your permanent copy you can Restore on any computer in one click.</p></div>
+    <div class="tip"><p><b>Aim for 20–40 seconds.</b> Short and punchy wins on social. Lead with the exterior or an aerial, walk through the key rooms, and end on a hero shot — twilight or the backyard.</p></div>
+    <div class="tip"><p><b>Free music, no credit required.</b> Use Pixabay or Mixkit — links are right in the Music panel. Download a track, drop it in, and turn on beat-sync.</p></div>
+  </div>
+
+  <h2>Good to know</h2>
+  <p class="sub">A few honest limits, so nothing surprises you.</p>
+  <div class="tips">
+    <div class="tip note"><p><b>The preview voice can't be saved into the video.</b> That's a browser limitation. To put narration in the export, use <b>Record</b> or <b>Import audio</b> — both land in the finished file.</p></div>
+    <div class="tip note"><p><b>Back up anything important.</b> On the shared link, a browser can occasionally clear saved work between visits. Use <b>Back up to file</b> for your Brand Kit and <b>Projects → Export</b> for videos you want to keep.</p></div>
+    <div class="tip note"><p><b>Nothing uploads.</b> Every step happens on your computer, so a client's photos stay private.</p></div>
+  </div>
+
+  <h2>Quick reference</h2>
+  <p class="sub">Where to find each thing.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>I want to…</th><th>Go to</th></tr></thead>
+      <tbody>
+        <tr><td>Add photos or video clips</td><td class="where">Photos &amp; footage</td></tr>
+        <tr><td>Auto-edit a montage from raw clips</td><td class="where">Auto-montage → Auto-create</td></tr>
+        <tr><td>Add an opening hook &amp; captions</td><td class="where">Hooks &amp; captions</td></tr>
+        <tr><td>Add narration</td><td class="where">Voiceover → Write script → Record / Import</td></tr>
+        <tr><td>Add music &amp; sync to the beat</td><td class="where">Music</td></tr>
+        <tr><td>Store my logo &amp; contact info</td><td class="where">Brand Kit (top bar)</td></tr>
+        <tr><td>Save or reopen my work</td><td class="where">Projects (top bar)</td></tr>
+        <tr><td>Export Reel, Square &amp; Wide at once</td><td class="where">Sizes, under the Export button</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <footer>
+    Made for the team at <b>Legacy Properties</b>. Questions or a feature you'd like added? Just ask.
+    <div class="legal">
+      Legacy Properties &middot; DRE #02254944<br>
+      Sara Cooper, Broker &middot; DRE #02141987 &nbsp;&bull;&nbsp; James Beyersdorf, Agent &middot; DRE #02122175
+    </div>
+  </footer>
+</div>
