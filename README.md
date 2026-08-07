@@ -52,6 +52,24 @@ reel. It renders 100% in the browser — nothing is uploaded — so you can also
 the page link with clients and they can make their own. Best for quick, on-the-spot
 videos and non-technical use.
 
+The app also includes:
+
+- **Projects (drafts & finals).** Your work — *including the photos and video
+  clips* — is auto-saved to the browser and kept in a Projects library. Save a
+  **draft** to keep working, or a **final** when it's done; reopen either anytime.
+  Nothing is lost when you leave. Use **Projects → Export** to save a portable
+  project file (media included) you can move between computers or back up.
+- **Brand Kit.** A settings menu that stores your logo, agent headshot, a
+  banner/nameplate, a broker icon, and all your contact info **once** — then
+  applies them to every new video automatically.
+- **Photos + video together.** Drop property photos and drone/walk-through clips
+  into the same reel; the clips play inline with the stills, with your music and
+  branding over the whole thing.
+
+> On the shareable claude.ai link, browser storage can be cleared between visits,
+> so for a permanent library use the downloaded/hosted copy of `web/studio.html`,
+> or keep projects with **Projects → Export**.
+
 **B. Command-line tool — for power & scale (below)**
 1080p output, batch rendering, the depth-parallax engine, and the pluggable AI
 layer. Best when you make lots of videos or want the highest quality.

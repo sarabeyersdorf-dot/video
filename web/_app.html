@@ -151,13 +151,60 @@
   .footnote { color: var(--faint); font-size: 12px; margin-top: 28px; text-align: center; line-height: 1.6; }
   a { color: var(--accent); }
   .hidden-input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+
+  /* ---- Header title + status ---- */
+  .proj-id { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  #projTitle { font-family: var(--sans); font-size:13px; color:var(--ink); background:var(--bg-2);
+    border:1px solid var(--line-2); border-radius:8px; padding:6px 10px; min-width:180px; }
+  .chip { font-size:11px; text-transform:uppercase; letter-spacing:.5px; padding:2px 9px; border-radius:20px; border:1px solid var(--line-2); color:var(--muted); }
+  .chip.draft { color:#D2B36A; border-color:#4a3f24; }
+  .chip.final { color:var(--good); border-color:#2f5b46; }
+  .chip.saved { color:var(--faint); }
+
+  /* ---- Modals ---- */
+  .modal { position:fixed; inset:0; background:rgba(6,7,9,.72); display:none; align-items:flex-start; justify-content:center; padding:5vh 16px; z-index:50; overflow:auto; }
+  .modal.open { display:flex; }
+  .sheet { background:var(--panel); border:1px solid var(--line); border-radius:16px; width:100%; max-width:640px; padding:22px; box-shadow:0 30px 80px -30px #000; }
+  .sheet h2 { font-family:var(--serif); font-weight:600; font-size:20px; margin:0 0 4px; }
+  .sheet .desc { color:var(--muted); font-size:12.5px; margin:0 0 18px; }
+  .sheet-head { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
+  .x { background:transparent; border:1px solid var(--line-2); color:var(--muted); border-radius:8px; width:32px; height:32px; cursor:pointer; font-size:16px; }
+  .x:hover { color:var(--ink); border-color:var(--faint); }
+  .modal-actions { display:flex; gap:10px; flex-wrap:wrap; margin-top:20px; }
+
+  /* project grid */
+  .proj-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:14px; margin-top:6px; }
+  .proj-card { background:var(--bg-2); border:1px solid var(--line); border-radius:11px; overflow:hidden; display:flex; flex-direction:column; }
+  .proj-card .pv { aspect-ratio:9/16; background:#000; width:100%; object-fit:cover; }
+  .proj-card .pv.wide { aspect-ratio:16/9; }
+  .proj-card .pb { padding:9px 10px; display:flex; flex-direction:column; gap:6px; }
+  .proj-card .pt { font-size:12.5px; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .proj-card .pm { font-size:11px; color:var(--faint); display:flex; justify-content:space-between; align-items:center; }
+  .proj-card .pa { display:flex; gap:6px; margin-top:2px; }
+  .proj-card .pa button { flex:1; font-size:11px; padding:5px; border-radius:6px; border:1px solid var(--line-2); background:var(--panel-2); color:var(--muted); cursor:pointer; }
+  .proj-card .pa button:hover { color:var(--ink); border-color:var(--faint); }
+  .proj-card .pa button.danger:hover { color:var(--danger); border-color:var(--danger); }
+  .empty-lib { color:var(--faint); font-size:13px; text-align:center; padding:26px 0; grid-column:1/-1; }
+
+  /* brand kit assets */
+  .asset-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  @media (max-width:480px){ .asset-grid { grid-template-columns:1fr; } }
+  .asset { background:var(--bg-2); border:1.5px dashed var(--line-2); border-radius:10px; padding:12px; text-align:center; cursor:pointer; }
+  .asset:hover { border-color:var(--accent); }
+  .asset .al { font-size:12.5px; color:var(--ink); }
+  .asset .as { font-size:11px; color:var(--faint); margin-top:3px; }
+  .asset img { max-height:54px; max-width:100%; margin-top:8px; border-radius:6px; background:#0007; }
+  .storage-note { font-size:11.5px; color:var(--faint); margin-top:14px; line-height:1.5; }
 </style>
 
 <div class="app">
   <header class="top">
     <div class="brand">
       <h1>ListingReel <span class="mark">Studio</span></h1>
-      <span class="sub">cinematic property videos, right in your browser</span>
+      <div class="proj-id">
+        <input type="text" id="projTitle" placeholder="Untitled project" aria-label="Project name">
+        <span class="chip draft" id="statusChip">draft</span>
+      </div>
     </div>
     <div class="top-actions">
       <div class="seg" id="formatSeg" role="group" aria-label="Format">
@@ -165,8 +212,11 @@
         <button data-format="square" aria-pressed="false">Square 1:1</button>
         <button data-format="wide" aria-pressed="false">Wide 16:9</button>
       </div>
-      <button class="btn ghost" id="saveBtn" title="Download your settings as a file">Save</button>
-      <button class="btn ghost" id="loadBtn" title="Load a saved settings file">Load</button>
+      <button class="btn ghost" id="brandBtn" title="Store your logos, headshot, banner & contact info">&#9881; Brand Kit</button>
+      <button class="btn ghost" id="projectsBtn" title="Open saved drafts & finals">&#128193; Projects</button>
+      <button class="btn ghost" id="newBtn" title="Start a new project">New</button>
+      <button class="btn ghost" id="saveDraftBtn">Save draft</button>
+      <button class="btn primary" id="saveFinalBtn" title="Save as a finished version">Save final</button>
     </div>
   </header>
 
@@ -289,10 +339,58 @@
   </p>
 </div>
 
+<div class="modal" id="libraryModal" role="dialog" aria-modal="true" aria-label="Projects">
+  <div class="sheet">
+    <div class="sheet-head">
+      <div><h2>Projects</h2><p class="desc">Your saved drafts and finished videos. Photos &amp; clips are stored with each one.</p></div>
+      <button class="x" data-close="libraryModal" aria-label="Close">&times;</button>
+    </div>
+    <div class="modal-actions" style="margin-top:0;margin-bottom:16px">
+      <button class="btn" id="libNewBtn">+ New project</button>
+      <button class="btn ghost" id="libImportBtn">Import from file</button>
+    </div>
+    <div class="proj-grid" id="projectGrid"></div>
+  </div>
+</div>
+
+<div class="modal" id="brandModal" role="dialog" aria-modal="true" aria-label="Brand Kit">
+  <div class="sheet">
+    <div class="sheet-head">
+      <div><h2>Brand Kit</h2><p class="desc">Stored once and reused on every new video. Saved in this browser.</p></div>
+      <button class="x" data-close="brandModal" aria-label="Close">&times;</button>
+    </div>
+    <div class="fields">
+      <label class="field">Name<input type="text" id="bk_name" placeholder="Sara Beyersdorf"></label>
+      <label class="field">Title<input type="text" id="bk_title" placeholder="Broker Associate"></label>
+      <label class="field">Brokerage<input type="text" id="bk_brokerage" placeholder="Sara Sells California"></label>
+      <label class="field">Phone<input type="text" id="bk_phone" placeholder="(555) 123-4567"></label>
+      <label class="field">Email<input type="text" id="bk_email" placeholder="sara@sarasells.com"></label>
+      <label class="field">License<input type="text" id="bk_license" placeholder="DRE #01234567"></label>
+      <label class="field full">Default call to action<input type="text" id="bk_cta" placeholder="Schedule a Private Showing"></label>
+    </div>
+    <div class="asset-grid" style="margin-top:14px">
+      <div class="asset" id="bk_logoDrop" tabindex="0" role="button"><div class="al">Brokerage logo</div><div class="as">PNG, transparent bg</div><div id="bk_logoPrev"></div></div>
+      <div class="asset" id="bk_headshotDrop" tabindex="0" role="button"><div class="al">Agent headshot</div><div class="as">shown on closing card</div><div id="bk_headshotPrev"></div></div>
+      <div class="asset" id="bk_bannerDrop" tabindex="0" role="button"><div class="al">Banner / nameplate</div><div class="as">overlaid on clips</div><div id="bk_bannerPrev"></div></div>
+      <div class="asset" id="bk_iconDrop" tabindex="0" role="button"><div class="al">Broker icon</div><div class="as">small corner mark</div><div id="bk_iconPrev"></div></div>
+    </div>
+    <p class="storage-note" id="storageNote"></p>
+    <div class="modal-actions">
+      <button class="btn primary" id="bkSaveBtn">Save Brand Kit</button>
+      <button class="btn ghost" id="bkApplyBtn" title="Apply to the current video too">Apply to current</button>
+      <button class="btn ghost" data-close="brandModal">Close</button>
+    </div>
+  </div>
+</div>
+
 <input type="file" id="mediaInput" class="hidden-input" accept="image/*,video/*" multiple>
 <input type="file" id="logoInput" class="hidden-input" accept="image/*">
 <input type="file" id="musicInput" class="hidden-input" accept="audio/*">
 <input type="file" id="projInput" class="hidden-input" accept="application/json,.json">
+<input type="file" id="bkLogoInput" class="hidden-input" accept="image/*">
+<input type="file" id="bkHeadshotInput" class="hidden-input" accept="image/*">
+<input type="file" id="bkBannerInput" class="hidden-input" accept="image/*">
+<input type="file" id="bkIconInput" class="hidden-input" accept="image/*">
 
 <script>
 (function () {
@@ -318,6 +416,9 @@
 
   // ---------------------------------------------------------------- state
   var state = {
+    projectId: null,     // set on save/open; drives autosave target
+    title: "",
+    status: "draft",     // draft | final
     format: "reel",
     theme: "luxe",
     accent: "#C6A15B",
@@ -325,12 +426,15 @@
     trans: 0.8,
     intro: true,
     outro: true,
-    media: [],           // {id,kind,el,url,name,motion,caption,dur,ready}
-    logo: null,          // {el,url}
-    music: null,         // {buffer,name}
+    media: [],           // {id,kind,el,url,blob,name,motion,caption,dur,ready}
+    logo: null,          // {el,url,blob}
+    headshot: null,      // {el,url,blob}
+    banner: null,        // {el,url,blob}
+    music: null,         // {buffer,name,blob}
     musicVol: 0.7
   };
   var uid = 1;
+  function newId() { return "p_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 7); }
 
   var $ = function (id) { return document.getElementById(id); };
   var canvas = $("stage"), ctx = canvas.getContext("2d");
@@ -357,34 +461,41 @@
       else if (/^video\//.test(file.type)) addVideo(file);
     });
   }
-  function addImage(file) {
+  // `meta` is supplied when restoring a saved project (carries motion/caption/etc).
+  function addImage(file, meta) {
     var url = URL.createObjectURL(file);
     var img = new Image();
-    var item = { id: uid++, kind: "image", el: img, url: url, name: file.name, motion: "auto", caption: "", dur: null, ready: false };
-    img.onload = function () { item.ready = true; renderList(); rebuild(); };
-    img.onerror = function () { setStatus("Couldn't read " + file.name, "err"); };
+    meta = meta || {};
+    var item = { id: uid++, kind: "image", el: img, url: url, blob: file, name: meta.name || file.name || "photo",
+      motion: meta.motion || "auto", caption: meta.caption || "", dur: meta.dur != null ? meta.dur : null, ready: false };
+    img.onload = function () { item.ready = true; renderList(); rebuild(); scheduleAutosave(); };
+    img.onerror = function () { setStatus("Couldn't read " + item.name, "err"); };
     img.src = url;
     state.media.push(item); renderList();
+    return item;
   }
-  function addVideo(file) {
+  function addVideo(file, meta) {
     var url = URL.createObjectURL(file);
     var v = document.createElement("video");
     v.muted = true; v.playsInline = true; v.preload = "auto"; v.src = url;
-    var item = { id: uid++, kind: "video", el: v, url: url, name: file.name, motion: "still", caption: "", dur: null, ready: false };
-    v.onloadeddata = function () { item.ready = true; item.natDur = v.duration || 0; renderList(); rebuild(); };
-    v.onerror = function () { setStatus("Couldn't read " + file.name, "err"); };
+    meta = meta || {};
+    var item = { id: uid++, kind: "video", el: v, url: url, blob: file, name: meta.name || file.name || "clip",
+      motion: "still", caption: meta.caption || "", dur: meta.dur != null ? meta.dur : null, ready: false };
+    v.onloadeddata = function () { item.ready = true; item.natDur = v.duration || 0; renderList(); rebuild(); scheduleAutosave(); };
+    v.onerror = function () { setStatus("Couldn't read " + item.name, "err"); };
     state.media.push(item); renderList();
+    return item;
   }
   function removeMedia(id) {
     var i = state.media.findIndex(function (m) { return m.id === id; });
-    if (i >= 0) { try { URL.revokeObjectURL(state.media[i].url); } catch (e) {} state.media.splice(i, 1); renderList(); rebuild(); }
+    if (i >= 0) { try { URL.revokeObjectURL(state.media[i].url); } catch (e) {} state.media.splice(i, 1); renderList(); rebuild(); scheduleAutosave(); }
   }
   function moveMedia(id, dir) {
     var i = state.media.findIndex(function (m) { return m.id === id; });
     var j = i + dir;
     if (i < 0 || j < 0 || j >= state.media.length) return;
     var t = state.media[i]; state.media[i] = state.media[j]; state.media[j] = t;
-    renderList(); rebuild();
+    renderList(); rebuild(); scheduleAutosave();
   }
 
   // ---------------------------------------------------------------- list UI
@@ -412,17 +523,17 @@
         var sel = document.createElement("select");
         MOTIONS.forEach(function (mo) { var o = document.createElement("option"); o.value = mo; o.textContent = mo; if (mo === m.motion) o.selected = true; sel.appendChild(o); });
         sel.style.maxWidth = "120px";
-        sel.onchange = function () { m.motion = sel.value; rebuild(); };
+        sel.onchange = function () { m.motion = sel.value; rebuild(); scheduleAutosave(); };
         row.appendChild(sel);
       } else {
         var dur = document.createElement("input"); dur.type = "number"; dur.min = "1"; dur.step = "0.5";
         dur.placeholder = "full"; dur.title = "Seconds to use (blank = full clip)";
         dur.value = m.dur == null ? "" : m.dur; dur.style.maxWidth = "90px";
-        dur.onchange = function () { m.dur = dur.value === "" ? null : +dur.value; rebuild(); };
+        dur.onchange = function () { m.dur = dur.value === "" ? null : +dur.value; rebuild(); scheduleAutosave(); };
         row.appendChild(dur);
       }
       var cap = document.createElement("input"); cap.className = "cap"; cap.type = "text"; cap.placeholder = "Caption (optional)";
-      cap.value = m.caption; cap.oninput = function () { m.caption = cap.value; rebuild(); };
+      cap.value = m.caption; cap.oninput = function () { m.caption = cap.value; rebuild(); scheduleAutosave(); };
       row.appendChild(cap);
       meta.appendChild(row);
       li.appendChild(meta);
@@ -541,6 +652,7 @@
     var p = seg.dur > 0 ? local / seg.dur : 0;
     var r = kenBurns(el, iw, ih, W, H, seg.motion, p);
     try { ctx.drawImage(el, r.sx, r.sy, r.sw, r.sh, 0, 0, W, H); } catch (e) {}
+    drawBrandOverlay(W, H);
     if (seg.caption) drawCaption(seg.caption, local, seg.dur, W, H);
   }
   function drawVideo(seg, local, W, H) {
@@ -551,6 +663,7 @@
       var sx = (iw - c.sw0) / 2, sy = (ih - c.sh0) / 2;
       try { ctx.drawImage(v, sx, sy, c.sw0, c.sh0, 0, 0, W, H); } catch (e) {}
     } else { ctx.fillStyle = "#000"; ctx.fillRect(0, 0, W, H); }
+    drawBrandOverlay(W, H);
     if (seg.caption) drawCaption(seg.caption, local, seg.dur, W, H);
   }
 
@@ -619,8 +732,19 @@
     var lh = lines.map(function (ln) { return ln.rule ? 14 * s : ln.s * 1.25; });
     var totalH = lh.reduce(function (a, b, i) { return a + b + (lines[i].gap || 0); }, 0) - (lines.length ? (lines[lines.length - 1].gap || 0) : 0);
     var y = (H - totalH) / 2 + lh[0];
-    // draw logo
-    if (state.logo && state.logo.el && state.logo.el.complete) {
+    // draw emblem: headshot (outro, if set) as a circle, else the logo
+    var useHead = kind === "outro" && state.headshot && state.headshot.el && state.headshot.el.complete;
+    if (useHead) {
+      var hd = state.headshot.el, R = 82 * s, hx = W / 2, hy = (H - totalH) / 2 - R - 22 * s;
+      if (hy < R + 16) hy = R + 16;
+      ctx.save(); ctx.beginPath(); ctx.arc(hx, hy, R, 0, Math.PI * 2); ctx.closePath(); ctx.clip();
+      var hsc = Math.max((2 * R) / (hd.naturalWidth || 1), (2 * R) / (hd.naturalHeight || 1));
+      var dw = (hd.naturalWidth || 1) * hsc, dh = (hd.naturalHeight || 1) * hsc;
+      try { ctx.drawImage(hd, hx - dw / 2, hy - dh / 2, dw, dh); } catch (e) {}
+      ctx.restore();
+      ctx.strokeStyle = th.accent; ctx.lineWidth = Math.max(2, 3 * s);
+      ctx.beginPath(); ctx.arc(hx, hy, R, 0, Math.PI * 2); ctx.stroke();
+    } else if (state.logo && state.logo.el && state.logo.el.complete) {
       var lw = W * 0.30, lel = state.logo.el;
       var lhh = lw * (lel.naturalHeight / (lel.naturalWidth || 1));
       var ly = (H - totalH) / 2 - lhh - 24 * s;
@@ -645,6 +769,20 @@
     if (L.baths != null) p.push(L.baths + " " + (L.baths == 1 ? "Bath" : "Baths"));
     if (L.sqft != null) p.push(commas(L.sqft) + " Sq Ft");
     return p.join("   •   ");
+  }
+
+  function drawBrandOverlay(W, H) {
+    var s = W / 720;
+    if (state.brokerIcon && state.brokerIcon.el && state.brokerIcon.el.complete) {
+      var ic = state.brokerIcon.el, iw = ic.naturalWidth || 1, ih = ic.naturalHeight || 1;
+      var bw = 92 * s, bh = bw * (ih / iw);
+      ctx.save(); ctx.globalAlpha = 0.92; ctx.drawImage(ic, 26 * s, 26 * s, bw, bh); ctx.restore();
+    }
+    if (state.banner && state.banner.el && state.banner.el.complete) {
+      var bn = state.banner.el, bnw = bn.naturalWidth || 1, bnh = bn.naturalHeight || 1;
+      var w = Math.min(W * 0.72, 540 * s), h = w * (bnh / bnw), x = (W - w) / 2, y = H - h - 42 * s;
+      ctx.save(); ctx.globalAlpha = 0.96; ctx.drawImage(bn, x, y, w, h); ctx.restore();
+    }
   }
 
   function drawCaption(text, local, dur, W, H) {
@@ -765,12 +903,19 @@
     });
   }
   function syncVideos(t) {
+    // During playback AND export we let videos PLAY (advancing their own frames)
+    // rather than seek per-frame — seeking is async and records blank frames,
+    // which is why an uploaded clip previously didn't appear in the export.
+    var running = playing || exporting;
     timeline.segs.forEach(function (seg) {
       if (seg.type !== "video") return;
       var v = seg.media.el, inside = t >= seg.start && t < seg.start + seg.dur;
       if (!inside) { if (!v.paused) v.pause(); return; }
-      if (playing) { if (v.paused) { try { v.currentTime = t - seg.start; v.play(); } catch (e) {} } }
-      else { try { v.currentTime = Math.max(0, t - seg.start); } catch (e) {} }
+      if (running) {
+        if (v.paused) { try { v.currentTime = Math.max(0, t - seg.start); var p = v.play(); if (p && p.catch) p.catch(function () {}); } catch (e) {} }
+      } else {
+        try { v.currentTime = Math.max(0, t - seg.start); } catch (e) {}
+      }
     });
   }
   function pauseVideos() { timeline.segs.forEach(function (s) { if (s.type === "video") { try { s.media.el.pause(); } catch (e) {} } }); }
@@ -868,78 +1013,264 @@
 
   function setStatus(msg, cls) { var s = $("status"); s.textContent = msg; s.className = "status" + (cls ? " " + cls : ""); }
 
-  // ---------------------------------------------------------------- save / load
-  function saveProject() {
-    var data = {
-      v: 1, format: state.format, theme: state.theme, accent: state.accent,
-      clip: state.clip, trans: state.trans, intro: state.intro, outro: state.outro, musicVol: state.musicVol,
-      listing: listing(), agent: agent(),
-      clips: state.media.map(function (m) { return { name: m.name, kind: m.kind, motion: m.motion, caption: m.caption, dur: m.dur }; })
-    };
-    var blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-    var a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "listing-reel-project.json";
-    document.body.appendChild(a); a.click(); a.remove();
-    setStatus("Settings saved. (Photos aren't stored in the file — re-add them when you reload.)", "ok");
+  // ------------------------------------------------ storage (IndexedDB)
+  // Projects (with their photos/clips as real bytes) and the Brand Kit are kept
+  // in IndexedDB so nothing is lost when you leave. Blobs survive reloads.
+  var DB = null, storageOK = true;
+  function idb() {
+    return new Promise(function (res, rej) {
+      try {
+        var r = indexedDB.open("listingreel", 1);
+        r.onupgradeneeded = function () {
+          var d = r.result;
+          if (!d.objectStoreNames.contains("projects")) d.createObjectStore("projects", { keyPath: "id" });
+          if (!d.objectStoreNames.contains("kv")) d.createObjectStore("kv");
+        };
+        r.onsuccess = function () { res(r.result); };
+        r.onerror = function () { rej(r.error); };
+      } catch (e) { rej(e); }
+    });
   }
-  function loadProject(file) {
+  function tx(store, mode) { return idb().then(function (d) { return d.transaction(store, mode).objectStore(store); }); }
+  function dbPut(store, val, key) { return tx(store, "readwrite").then(function (os) { return new Promise(function (res, rej) { var rq = key !== undefined ? os.put(val, key) : os.put(val); rq.onsuccess = function () { res(rq.result); }; rq.onerror = function () { rej(rq.error); }; }); }); }
+  function dbGet(store, key) { return tx(store, "readonly").then(function (os) { return new Promise(function (res, rej) { var rq = os.get(key); rq.onsuccess = function () { res(rq.result); }; rq.onerror = function () { rej(rq.error); }; }); }); }
+  function dbAll(store) { return tx(store, "readonly").then(function (os) { return new Promise(function (res, rej) { var rq = os.getAll(); rq.onsuccess = function () { res(rq.result || []); }; rq.onerror = function () { rej(rq.error); }; }); }); }
+  function dbDel(store, key) { return tx(store, "readwrite").then(function (os) { return new Promise(function (res, rej) { var rq = os.delete(key); rq.onsuccess = function () { res(); }; rq.onerror = function () { rej(rq.error); }; }); }); }
+
+  // ------------------------------------------------ asset setters (images)
+  function imgFromBlob(blob, cb) { var url = URL.createObjectURL(blob); var im = new Image(); im.onload = function () { cb({ el: im, url: url, blob: blob }); }; im.src = url; }
+  function setLogo(blob, label) { imgFromBlob(blob, function (o) { state.logo = o; $("logoLabel").textContent = "Logo added ✓" + (label ? " — " + label : ""); rebuild(); }); }
+  function setHeadshot(blob) { imgFromBlob(blob, function (o) { state.headshot = o; rebuild(); }); }
+  function setBanner(blob) { imgFromBlob(blob, function (o) { state.banner = o; rebuild(); }); }
+  function setBrokerIcon(blob) { imgFromBlob(blob, function (o) { state.brokerIcon = o; rebuild(); }); }
+  function setMusicBlob(blob, name) { var ac = ensureAudio(); if (!ac) return Promise.resolve(); return blob.arrayBuffer().then(function (b) { return ac.decodeAudioData(b); }).then(function (audio) { state.music = { buffer: audio, name: name || "music", blob: blob }; $("musicLabel").textContent = "Music added ✓ — " + (name || ""); }).catch(function () {}); }
+
+  // ------------------------------------------------ read/apply settings
+  function settingsObj() { return { format: state.format, theme: state.theme, accent: state.accent, clip: state.clip, trans: state.trans, intro: state.intro, outro: state.outro, musicVol: state.musicVol }; }
+  function setV(id, v) { if (v != null) $(id).value = v; }
+  function applySettings(d) {
+    if (!d) return;
+    if (d.format) setFormat(d.format);
+    if (d.theme) { state.theme = d.theme; $("f_theme").value = d.theme; }
+    if (d.accent) { state.accent = d.accent; $("f_accent").value = d.accent; syncSwatches(); }
+    if (d.clip) { state.clip = d.clip; $("f_clip").value = d.clip; }
+    if (d.trans != null) { state.trans = d.trans; $("f_trans").value = d.trans; }
+    if (d.intro != null) { state.intro = d.intro; $("f_intro").checked = d.intro; }
+    if (d.outro != null) { state.outro = d.outro; $("f_outro").checked = d.outro; }
+    if (d.musicVol != null) { state.musicVol = d.musicVol; $("musicVol").value = Math.round(d.musicVol * 100); }
+  }
+  function applyListing(L) { L = L || {}; setV("f_tagline", L.tagline); setV("f_address", L.address); setV("f_city", L.city); setV("f_price", L.price); setV("f_beds", L.beds); setV("f_baths", L.baths); setV("f_sqft", L.sqft); }
+  function applyAgent(A) { A = A || {}; setV("f_name", A.name); setV("f_title", A.title); setV("f_brokerage", A.brokerage); setV("f_phone", A.phone); setV("f_email", A.email); setV("f_license", A.license); setV("f_cta", A.cta); }
+
+  // ------------------------------------------------ brand kit
+  function collectBrandKit() {
+    return {
+      agent: { name: $("bk_name").value, title: $("bk_title").value, brokerage: $("bk_brokerage").value, phone: $("bk_phone").value, email: $("bk_email").value, license: $("bk_license").value, cta: $("bk_cta").value },
+      logoBlob: brand.logoBlob || null, headshotBlob: brand.headshotBlob || null, bannerBlob: brand.bannerBlob || null, iconBlob: brand.iconBlob || null
+    };
+  }
+  var brand = {};
+  function openBrandModal() {
+    var a = brand.agent || {};
+    setV("bk_name", a.name); setV("bk_title", a.title); setV("bk_brokerage", a.brokerage);
+    setV("bk_phone", a.phone); setV("bk_email", a.email); setV("bk_license", a.license); setV("bk_cta", a.cta);
+    brandPrev("bk_logoPrev", brand.logoBlob); brandPrev("bk_headshotPrev", brand.headshotBlob);
+    brandPrev("bk_bannerPrev", brand.bannerBlob); brandPrev("bk_iconPrev", brand.iconBlob);
+    $("storageNote").textContent = storageOK
+      ? "Stored in this browser. On the shareable link, storage can be cleared between visits — use Projects › Export to keep a permanent copy."
+      : "This browser blocked local storage, so the Brand Kit won't persist here. Use the hosted/downloaded copy of the app, or Projects › Export.";
+    openModal("brandModal");
+  }
+  function brandPrev(id, blob) { var el = $(id); el.innerHTML = ""; if (blob) { var im = document.createElement("img"); im.src = URL.createObjectURL(blob); el.appendChild(im); } }
+  function saveBrandKit(applyNow) {
+    brand.agent = collectBrandKit().agent;
+    dbPut("kv", brand, "brandkit").then(function () {}, function () {});
+    if (applyNow) applyBrandKit();
+    setStatus("Brand Kit saved.", "ok");
+  }
+  function applyBrandKit() {
+    if (!brand) return;
+    if (brand.agent) applyAgent(brand.agent);
+    if (brand.logoBlob) setLogo(brand.logoBlob, "brand kit");
+    if (brand.headshotBlob) setHeadshot(brand.headshotBlob);
+    if (brand.bannerBlob) setBanner(brand.bannerBlob);
+    if (brand.iconBlob) setBrokerIcon(brand.iconBlob);
+    rebuild(); scheduleAutosave();
+  }
+  function loadBrandKit() {
+    return dbGet("kv", "brandkit").then(function (bk) { if (bk) brand = bk; }, function () {});
+  }
+
+  // ------------------------------------------------ project records
+  function currentRecord(status) {
+    return {
+      id: state.projectId || (state.projectId = newId()),
+      title: ($("projTitle").value || defaultTitle()),
+      status: status || state.status || "draft",
+      format: state.format,
+      updated: Date.now(),
+      settings: settingsObj(),
+      listing: listing(),
+      agent: agent(),
+      media: state.media.map(function (m) { return { kind: m.kind, name: m.name, motion: m.motion, caption: m.caption, dur: m.dur, blob: m.blob }; }),
+      logoBlob: state.logo ? state.logo.blob : null,
+      headshotBlob: state.headshot ? state.headshot.blob : null,
+      bannerBlob: state.banner ? state.banner.blob : null,
+      iconBlob: state.brokerIcon ? state.brokerIcon.blob : null,
+      musicBlob: state.music ? state.music.blob : null,
+      musicName: state.music ? state.music.name : null,
+      thumb: posterThumb()
+    };
+  }
+  function defaultTitle() { var a = $("f_address").value; return a ? a : "Untitled project"; }
+  function posterThumb() {
+    try { var keep = playing; drawAt(posterTime()); var u = canvas.toDataURL("image/jpeg", 0.5); if (!keep) drawAt(posterTime()); return u; } catch (e) { return ""; }
+  }
+  function saveProject(status) {
+    if (!state.media.some(function (m) { return m.ready; }) && status === "final") { setStatus("Add at least one photo before saving a final.", "err"); return; }
+    var rec = currentRecord(status);
+    state.projectId = rec.id; state.status = rec.status; $("projTitle").value = rec.title;
+    setStatusChip(rec.status);
+    dbPut("projects", rec).then(function () {
+      dbPut("kv", rec.id, "lastOpen");
+      setStatus((status === "final" ? "Saved as final" : "Draft saved") + " — " + rec.title, "ok");
+    }, function () { setStatus("Couldn't save to this browser. Use Projects › Export to keep a file.", "err"); });
+  }
+  function setStatusChip(st) { var c = $("statusChip"); c.textContent = st; c.className = "chip " + st; }
+
+  // debounced silent autosave of the working project
+  var autosaveT = null;
+  function scheduleAutosave() {
+    if (!booted) return;
+    if (!state.media.length && !$("f_address").value && !$("f_name").value) return;
+    clearTimeout(autosaveT);
+    autosaveT = setTimeout(function () {
+      var rec = currentRecord(state.status || "draft");
+      state.projectId = rec.id;
+      dbPut("projects", rec).then(function () { dbPut("kv", rec.id, "lastOpen"); setStatusChip(state.status || "draft"); }, function () {});
+    }, 1500);
+  }
+
+  function resetWorkspace() {
+    state.media.forEach(function (m) { try { URL.revokeObjectURL(m.url); } catch (e) {} });
+    state.media = []; state.logo = null; state.headshot = null; state.banner = null; state.brokerIcon = null; state.music = null;
+    $("logoLabel").textContent = "Drop your logo (optional)";
+    $("musicLabel").textContent = "Drop background music (optional)";
+    renderList();
+  }
+  function newProject() {
+    resetWorkspace();
+    state.projectId = newId(); state.status = "draft"; setStatusChip("draft");
+    ["f_tagline","f_address","f_city","f_price","f_beds","f_baths","f_sqft"].forEach(function (id) { $(id).value = ""; });
+    $("projTitle").value = "";
+    applyBrandKit();               // agent + logo/banner from the kit
+    rebuild(); drawAt(posterTime());
+    setStatus("New project. Brand Kit applied.", "ok");
+  }
+
+  function openRecord(rec) {
+    if (!rec) return;
+    resetWorkspace();
+    state.projectId = rec.id; state.status = rec.status || "draft";
+    $("projTitle").value = rec.title || ""; setStatusChip(state.status);
+    applySettings(rec.settings); applyListing(rec.listing); applyAgent(rec.agent);
+    (rec.media || []).forEach(function (m) {
+      if (!m.blob) return;
+      if (m.kind === "video") addVideo(m.blob, m); else addImage(m.blob, m);
+    });
+    if (rec.logoBlob) setLogo(rec.logoBlob); else state.logo = null;
+    if (rec.headshotBlob) setHeadshot(rec.headshotBlob);
+    if (rec.bannerBlob) setBanner(rec.bannerBlob);
+    if (rec.iconBlob) setBrokerIcon(rec.iconBlob);
+    if (rec.musicBlob) setMusicBlob(rec.musicBlob, rec.musicName);
+    dbPut("kv", rec.id, "lastOpen");
+    rebuild(); drawAt(posterTime());
+    setStatus("Opened — " + (rec.title || "project"), "ok");
+  }
+  function openProjectById(id) { dbGet("projects", id).then(openRecord); }
+  function deleteProject(id) { dbDel("projects", id).then(function () { if (state.projectId === id) { state.projectId = null; } renderLibrary(); }); }
+  function duplicateProject(id) {
+    dbGet("projects", id).then(function (rec) {
+      if (!rec) return; var copy = Object.assign({}, rec); copy.id = newId(); copy.title = (rec.title || "Project") + " copy"; copy.status = "draft"; copy.updated = Date.now();
+      copy.media = (rec.media || []).map(function (m) { return Object.assign({}, m); });
+      dbPut("projects", copy).then(renderLibrary);
+    });
+  }
+
+  // ------------------------------------------------ library UI
+  function openLibrary() { renderLibrary(); openModal("libraryModal"); }
+  function renderLibrary() {
+    var grid = $("projectGrid"); grid.innerHTML = "";
+    dbAll("projects").then(function (list) {
+      list.sort(function (a, b) { return (b.updated || 0) - (a.updated || 0); });
+      if (!list.length) { grid.innerHTML = '<div class="empty-lib">No saved projects yet. Save a draft to see it here.</div>'; return; }
+      list.forEach(function (rec) {
+        var card = document.createElement("div"); card.className = "proj-card";
+        var pv = document.createElement("img"); pv.className = "pv" + (rec.format === "wide" ? " wide" : ""); if (rec.thumb) pv.src = rec.thumb; pv.alt = rec.title || "project";
+        card.appendChild(pv);
+        var pb = document.createElement("div"); pb.className = "pb";
+        var pt = document.createElement("div"); pt.className = "pt"; pt.textContent = rec.title || "Untitled"; pb.appendChild(pt);
+        var pm = document.createElement("div"); pm.className = "pm";
+        var chip = document.createElement("span"); chip.className = "chip " + (rec.status || "draft"); chip.textContent = rec.status || "draft";
+        var when = document.createElement("span"); when.textContent = rec.media ? rec.media.length + " clips" : "";
+        pm.appendChild(chip); pm.appendChild(when); pb.appendChild(pm);
+        var pa = document.createElement("div"); pa.className = "pa";
+        pa.appendChild(mkbtn("Open", function () { openRecord(rec); closeModal("libraryModal"); }));
+        pa.appendChild(mkbtn("Copy", function () { duplicateProject(rec.id); }));
+        var del = mkbtn("Delete", function () { if (confirm("Delete \"" + (rec.title || "project") + "\"?")) deleteProject(rec.id); }); del.className = "danger"; pa.appendChild(del);
+        pb.appendChild(pa); card.appendChild(pb); grid.appendChild(card);
+      });
+    });
+  }
+  function mkbtn(t, fn) { var b = document.createElement("button"); b.textContent = t; b.onclick = fn; return b; }
+
+  // ------------------------------------------------ file import/export (portable, includes media)
+  function blobToDataURL(b) { return new Promise(function (res) { var r = new FileReader(); r.onload = function () { res(r.result); }; r.readAsDataURL(b); }); }
+  function dataURLToBlob(u) { var p = u.split(","), m = /:(.*?);/.exec(p[0])[1], bin = atob(p[1]), n = bin.length, a = new Uint8Array(n); while (n--) a[n] = bin.charCodeAt(n); return new Blob([a], { type: m }); }
+  function exportProjectFile() {
+    var rec = currentRecord(state.status);
+    var blobs = []; state.media.forEach(function (m) { blobs.push(m.blob); });
+    if (state.logo) blobs.push(state.logo.blob); if (state.banner) blobs.push(state.banner.blob);
+    if (state.headshot) blobs.push(state.headshot.blob); if (state.music) blobs.push(state.music.blob);
+    Promise.all(blobs.map(function (b) { return b ? blobToDataURL(b) : Promise.resolve(null); })).then(function (urls) {
+      var i = 0, out = { v: 2, title: rec.title, status: rec.status, settings: rec.settings, listing: rec.listing, agent: rec.agent, media: [], musicName: rec.musicName };
+      out.media = state.media.map(function (m) { return { kind: m.kind, name: m.name, motion: m.motion, caption: m.caption, dur: m.dur, data: urls[i++] }; });
+      out.logo = state.logo ? urls[i++] : null; out.banner = state.banner ? urls[i++] : null; out.headshot = state.headshot ? urls[i++] : null; out.music = state.music ? urls[i++] : null;
+      var blob = new Blob([JSON.stringify(out)], { type: "application/json" });
+      var a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = (rec.title || "listing-reel").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") + ".lrproj.json";
+      document.body.appendChild(a); a.click(); a.remove();
+      setStatus("Project file exported (photos included).", "ok");
+    });
+  }
+  function importProjectFile(file) {
     var r = new FileReader();
     r.onload = function () {
       try {
         var d = JSON.parse(r.result);
-        if (d.format) setFormat(d.format);
-        if (d.theme) { state.theme = d.theme; $("f_theme").value = d.theme; }
-        if (d.accent) { state.accent = d.accent; $("f_accent").value = d.accent; syncSwatches(); }
-        if (d.clip) { state.clip = d.clip; $("f_clip").value = d.clip; }
-        if (d.trans != null) { state.trans = d.trans; $("f_trans").value = d.trans; }
-        if (d.intro != null) { state.intro = d.intro; $("f_intro").checked = d.intro; }
-        if (d.outro != null) { state.outro = d.outro; $("f_outro").checked = d.outro; }
-        if (d.musicVol != null) { state.musicVol = d.musicVol; $("musicVol").value = Math.round(d.musicVol * 100); }
-        var L = d.listing || {}, A = d.agent || {};
-        setV("f_tagline", L.tagline); setV("f_address", L.address); setV("f_city", L.city); setV("f_price", L.price);
-        setV("f_beds", L.beds); setV("f_baths", L.baths); setV("f_sqft", L.sqft);
-        setV("f_name", A.name); setV("f_title", A.title); setV("f_brokerage", A.brokerage);
-        setV("f_phone", A.phone); setV("f_email", A.email); setV("f_license", A.license); setV("f_cta", A.cta);
-        rebuild(); persist();
-        setStatus("Settings loaded. Re-add your photos to match.", "ok");
+        var rec = { id: newId(), title: d.title || "Imported project", status: d.status || "draft", format: (d.settings && d.settings.format) || "reel", settings: d.settings, listing: d.listing, agent: d.agent, media: [], updated: Date.now() };
+        rec.media = (d.media || []).map(function (m) { return { kind: m.kind, name: m.name, motion: m.motion, caption: m.caption, dur: m.dur, blob: m.data ? dataURLToBlob(m.data) : null }; });
+        rec.logoBlob = d.logo ? dataURLToBlob(d.logo) : null; rec.bannerBlob = d.banner ? dataURLToBlob(d.banner) : null;
+        rec.headshotBlob = d.headshot ? dataURLToBlob(d.headshot) : null; rec.musicBlob = d.music ? dataURLToBlob(d.music) : null; rec.musicName = d.musicName;
+        // support the old settings-only files too
+        if (!d.media && d.format) { applySettings(d); applyListing(d.listing); applyAgent(d.agent); setStatus("Settings loaded (add photos).", "ok"); return; }
+        dbPut("projects", rec).then(function () { openRecord(rec); closeModal("libraryModal"); });
       } catch (e) { setStatus("That file couldn't be read as a project.", "err"); }
     };
     r.readAsText(file);
   }
-  function setV(id, v) { if (v != null) $(id).value = v; }
 
-  // ---------------------------------------------------------------- persistence (text only)
-  function persist() {
-    try {
-      var d = { format: state.format, theme: state.theme, accent: state.accent, clip: state.clip, trans: state.trans, intro: state.intro, outro: state.outro, musicVol: state.musicVol, listing: listing(), agent: agent() };
-      localStorage.setItem("listingreel", JSON.stringify(d));
-    } catch (e) {}
-  }
-  function restore() {
-    try {
-      var d = JSON.parse(localStorage.getItem("listingreel") || "null"); if (!d) return;
-      if (d.format) state.format = d.format;
-      if (d.theme) state.theme = d.theme; if (d.accent) state.accent = d.accent;
-      if (d.clip) state.clip = d.clip; if (d.trans != null) state.trans = d.trans;
-      if (d.intro != null) state.intro = d.intro; if (d.outro != null) state.outro = d.outro;
-      if (d.musicVol != null) state.musicVol = d.musicVol;
-      var L = d.listing || {}, A = d.agent || {};
-      setV("f_tagline", L.tagline); setV("f_address", L.address); setV("f_city", L.city); setV("f_price", L.price);
-      setV("f_beds", L.beds); setV("f_baths", L.baths); setV("f_sqft", L.sqft);
-      setV("f_name", A.name); setV("f_title", A.title); setV("f_brokerage", A.brokerage);
-      setV("f_phone", A.phone); setV("f_email", A.email); setV("f_license", A.license); setV("f_cta", A.cta);
-      $("f_theme").value = state.theme; $("f_accent").value = state.accent;
-      $("f_clip").value = state.clip; $("f_trans").value = state.trans;
-      $("f_intro").checked = state.intro; $("f_outro").checked = state.outro;
-      $("musicVol").value = Math.round(state.musicVol * 100);
-    } catch (e) {}
-  }
+  // ------------------------------------------------ modal helpers
+  function openModal(id) { $(id).classList.add("open"); }
+  function closeModal(id) { $(id).classList.remove("open"); }
+
+  var booted = false;
 
   // ---------------------------------------------------------------- wiring
   function setFormat(f) {
     if (!FORMATS[f]) return;
     state.format = f;
     Array.prototype.forEach.call($("formatSeg").children, function (b) { b.setAttribute("aria-pressed", b.dataset.format === f ? "true" : "false"); });
-    setCanvasSize(); rebuild(); persist();
+    setCanvasSize(); rebuild(); scheduleAutosave();
   }
   function syncSwatches() {
     Array.prototype.forEach.call($("swatches").children, function (sw) { sw.setAttribute("aria-pressed", sw.dataset.c.toLowerCase() === (state.accent || "").toLowerCase() ? "true" : "false"); });
@@ -957,65 +1288,88 @@
 
   function init() {
     setCanvasSize();
-    // swatches
     ACCENTS.forEach(function (c) {
       var sw = document.createElement("button"); sw.className = "swatch"; sw.style.background = c; sw.dataset.c = c; sw.title = c;
-      sw.onclick = function () { state.accent = c; $("f_accent").value = c; syncSwatches(); rebuild(); persist(); };
+      sw.onclick = function () { state.accent = c; $("f_accent").value = c; syncSwatches(); rebuild(); scheduleAutosave(); };
       $("swatches").appendChild(sw);
     });
-    restore();
     syncSwatches();
 
-    // format
     Array.prototype.forEach.call($("formatSeg").children, function (b) { b.onclick = function () { setFormat(b.dataset.format); }; });
     setFormat(state.format);
 
-    // drops
+    // media / per-project logo / music
     wireDrop("mediaDrop", "mediaInput", addMediaFiles);
-    wireDrop("logoDrop", "logoInput", function (files) {
-      var f = files && files[0]; if (!f) return;
-      var url = URL.createObjectURL(f); var img = new Image();
-      img.onload = function () { state.logo = { el: img, url: url }; $("logoLabel").textContent = "Logo added ✓ — " + f.name; rebuild(); };
-      img.src = url;
-    });
+    wireDrop("logoDrop", "logoInput", function (files) { var f = files && files[0]; if (f) setLogo(f, f.name); scheduleAutosave(); });
     wireDrop("musicDrop", "musicInput", function (files) {
       var f = files && files[0]; if (!f) return;
-      var ac = ensureAudio(); if (!ac) { setStatus("Audio isn't supported in this browser.", "err"); return; }
-      f.arrayBuffer().then(function (buf) { return ac.decodeAudioData(buf); }).then(function (audio) {
-        state.music = { buffer: audio, name: f.name }; $("musicLabel").textContent = "Music added ✓ — " + f.name; setStatus("Music added.", "ok");
-      }).catch(function () { setStatus("Couldn't decode that audio file.", "err"); });
+      setMusicBlob(f, f.name).then(function () { setStatus("Music added.", "ok"); scheduleAutosave(); });
     });
 
-    // transport
+    // transport / export
     $("playBtn").onclick = function () { if (playing) stop(); else play(); };
     $("scrub").oninput = function () { if (playing) stop(); seek((+$("scrub").value) / 1000 * timeline.total); };
     $("exportBtn").onclick = exportVideo;
-    $("saveBtn").onclick = saveProject;
-    $("loadBtn").onclick = function () { $("projInput").click(); };
-    $("projInput").onchange = function () { if ($("projInput").files[0]) loadProject($("projInput").files[0]); $("projInput").value = ""; };
 
-    // style inputs
-    $("f_theme").onchange = function () { state.theme = $("f_theme").value; var th = THEMES[state.theme]; if (th) { state.accent = th.accent; $("f_accent").value = th.accent; syncSwatches(); } rebuild(); persist(); };
-    $("f_accent").oninput = function () { state.accent = $("f_accent").value; syncSwatches(); rebuild(); persist(); };
-    $("f_clip").onchange = function () { state.clip = Math.max(1.5, +$("f_clip").value || 4); rebuild(); persist(); };
-    $("f_trans").onchange = function () { state.trans = Math.max(0, Math.min(1.5, +$("f_trans").value || 0)); rebuild(); persist(); };
-    $("f_intro").onchange = function () { state.intro = $("f_intro").checked; rebuild(); persist(); };
-    $("f_outro").onchange = function () { state.outro = $("f_outro").checked; rebuild(); persist(); };
+    // header actions
+    $("brandBtn").onclick = openBrandModal;
+    $("projectsBtn").onclick = openLibrary;
+    $("newBtn").onclick = function () { newProject(); };
+    $("saveDraftBtn").onclick = function () { saveProject("draft"); };
+    $("saveFinalBtn").onclick = function () { saveProject("final"); };
+    $("projTitle").addEventListener("input", scheduleAutosave);
+
+    // brand kit modal
+    wireDrop("bk_logoDrop", "bkLogoInput", function (fs) { if (fs[0]) { brand.logoBlob = fs[0]; brandPrev("bk_logoPrev", fs[0]); } });
+    wireDrop("bk_headshotDrop", "bkHeadshotInput", function (fs) { if (fs[0]) { brand.headshotBlob = fs[0]; brandPrev("bk_headshotPrev", fs[0]); } });
+    wireDrop("bk_bannerDrop", "bkBannerInput", function (fs) { if (fs[0]) { brand.bannerBlob = fs[0]; brandPrev("bk_bannerPrev", fs[0]); } });
+    wireDrop("bk_iconDrop", "bkIconInput", function (fs) { if (fs[0]) { brand.iconBlob = fs[0]; brandPrev("bk_iconPrev", fs[0]); } });
+    $("bkSaveBtn").onclick = function () { saveBrandKit(true); closeModal("brandModal"); };
+    $("bkApplyBtn").onclick = function () { saveBrandKit(true); };
+
+    // library modal
+    $("libNewBtn").onclick = function () { newProject(); closeModal("libraryModal"); };
+    $("libImportBtn").onclick = function () { $("projInput").click(); };
+    $("projInput").onchange = function () { if ($("projInput").files[0]) importProjectFile($("projInput").files[0]); $("projInput").value = ""; };
+
+    // modal close (backdrop + [data-close] + Esc)
+    Array.prototype.forEach.call(document.querySelectorAll("[data-close]"), function (b) { b.onclick = function () { closeModal(b.getAttribute("data-close")); }; });
+    Array.prototype.forEach.call(document.querySelectorAll(".modal"), function (m) { m.addEventListener("click", function (e) { if (e.target === m) closeModal(m.id); }); });
+    document.addEventListener("keydown", function (e) { if (e.key === "Escape") { closeModal("brandModal"); closeModal("libraryModal"); } });
+
+    // style + text inputs -> live update + autosave
+    $("f_theme").onchange = function () { state.theme = $("f_theme").value; var th = THEMES[state.theme]; if (th) { state.accent = th.accent; $("f_accent").value = th.accent; syncSwatches(); } rebuild(); scheduleAutosave(); };
+    $("f_accent").oninput = function () { state.accent = $("f_accent").value; syncSwatches(); rebuild(); scheduleAutosave(); };
+    $("f_clip").onchange = function () { state.clip = Math.max(1.5, +$("f_clip").value || 4); rebuild(); scheduleAutosave(); };
+    $("f_trans").onchange = function () { state.trans = Math.max(0, Math.min(1.5, +$("f_trans").value || 0)); rebuild(); scheduleAutosave(); };
+    $("f_intro").onchange = function () { state.intro = $("f_intro").checked; rebuild(); scheduleAutosave(); };
+    $("f_outro").onchange = function () { state.outro = $("f_outro").checked; rebuild(); scheduleAutosave(); };
     $("musicVol").oninput = function () { state.musicVol = (+$("musicVol").value) / 100; };
     ["f_tagline","f_address","f_city","f_price","f_beds","f_baths","f_sqft","f_name","f_title","f_brokerage","f_phone","f_email","f_license","f_cta"].forEach(function (id) {
-      $(id).addEventListener("input", function () { rebuild(); persist(); });
+      $(id).addEventListener("input", function () { rebuild(); scheduleAutosave(); });
     });
 
-    // export hint by capability
     var mp4 = window.MediaRecorder && (MediaRecorder.isTypeSupported("video/mp4") || MediaRecorder.isTypeSupported("video/mp4;codecs=avc1.42E01E"));
     $("exportHint").textContent = mp4
       ? "Exports an MP4. Recording runs in real time, so a 25-second reel takes ~25 seconds — keep this tab in front."
       : "Exports a WebM (Instagram, TikTok & YouTube all accept it). Recording runs in real time — keep this tab in front.";
 
-    rebuild();
-    drawAt(posterTime());
+    // boot: verify storage, load brand kit, restore last project
+    idb().then(function () { storageOK = true; }, function () { storageOK = false; });
+    loadBrandKit().then(function () {
+      if (brand.agent) applyAgent(brand.agent);
+      if (brand.logoBlob) setLogo(brand.logoBlob);
+      if (brand.bannerBlob) setBanner(brand.bannerBlob);
+      if (brand.headshotBlob) setHeadshot(brand.headshotBlob);
+      if (brand.iconBlob) setBrokerIcon(brand.iconBlob);
+      return dbGet("kv", "lastOpen");
+    }).then(function (lastId) {
+      if (lastId) return dbGet("projects", lastId).then(function (rec) { if (rec) { openRecord(rec); return true; } });
+    }).catch(function () {}).then(function () {
+      booted = true; rebuild(); drawAt(posterTime());
+    });
   }
 
-  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init); else init();
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init); else init();
 })();
 </script>
