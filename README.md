@@ -42,7 +42,21 @@ Export any aspect ratio from the same photos:
 
 ---
 
-## Install
+## Two ways to use it
+
+**A. Browser app — no install (`web/studio.html`)**
+Open `web/studio.html` in Chrome, Edge, or Safari (double-click it, or host it on
+your site). Drag in photos, drone clips, your logo, and music; fill in the listing
+and your branding; preview live; and click **Export video** to download a finished
+reel. It renders 100% in the browser — nothing is uploaded — so you can also share
+the page link with clients and they can make their own. Best for quick, on-the-spot
+videos and non-technical use.
+
+**B. Command-line tool — for power & scale (below)**
+1080p output, batch rendering, the depth-parallax engine, and the pluggable AI
+layer. Best when you make lots of videos or want the highest quality.
+
+## Install (command-line tool)
 
 You need **[FFmpeg](https://ffmpeg.org/download.html)** (the free video engine) and
 **Node.js 18+**.
