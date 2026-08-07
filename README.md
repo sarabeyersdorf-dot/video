@@ -74,6 +74,11 @@ The app also includes:
   right in the Music panel.
 - **Animated agent nameplate** that slides in over the footage, plus a headshot
   chip, from your Brand Kit.
+- **Hooks & animated captions.** A punchy opening hook ("JUST LISTED", the price,
+  "4 BED · 3 BA", the city — one-tap suggestions from your listing) animates in
+  over the first seconds with a pop / slide / typewriter / word-by-word / bar-wipe
+  style, plus an optional closing hook. Per-clip captions now animate in (slide /
+  pop / fade) with an accent-bar wipe.
 
 > On the shareable claude.ai link, browser storage can be cleared between visits,
 > so for a permanent library use the downloaded/hosted copy of `web/studio.html`,

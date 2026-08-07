@@ -151,6 +151,8 @@
   .footnote { color: var(--faint); font-size: 12px; margin-top: 28px; text-align: center; line-height: 1.6; }
   a { color: var(--accent); }
   .hidden-input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+  .tagchip { font-size:12px; padding:5px 11px; border-radius:20px; border:1px solid var(--line-2); background:var(--bg-2); color:var(--muted); cursor:pointer; }
+  .tagchip:hover { color:var(--ink); border-color:var(--accent); }
 
   /* ---- Header title + status ---- */
   .proj-id { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
@@ -335,6 +337,43 @@
       </section>
 
       <section class="card">
+        <h2>Hooks &amp; captions &#10024;</h2>
+        <p class="desc">A punchy opening hook grabs the scroll in the first second. Tap a suggestion or type your own.</p>
+        <label class="field full">Opening hook
+          <input type="text" id="f_hook" placeholder="JUST LISTED">
+        </label>
+        <div class="swatches" id="hookChips" style="margin:10px 0 4px"></div>
+        <div class="subgrid" style="margin-top:6px">
+          <label class="field">Animation
+            <select id="f_hookStyle">
+              <option value="pop">Pop</option>
+              <option value="slide">Slide up</option>
+              <option value="type">Typewriter</option>
+              <option value="word">Word by word</option>
+              <option value="wipe">Bar wipe</option>
+            </select>
+          </label>
+          <label class="field">Position
+            <select id="f_hookPos">
+              <option value="top">Top</option>
+              <option value="center">Center</option>
+              <option value="bottom">Bottom</option>
+            </select>
+          </label>
+        </div>
+        <label class="field full" style="margin-top:12px">Closing hook (optional)
+          <input type="text" id="f_endhook" placeholder="BOOK A PRIVATE TOUR">
+        </label>
+        <label class="field" style="margin-top:12px">Caption animation
+          <select id="f_capStyle">
+            <option value="slide">Slide up</option>
+            <option value="pop">Pop</option>
+            <option value="fade">Fade</option>
+          </select>
+        </label>
+      </section>
+
+      <section class="card">
         <h2>Style</h2>
         <div class="style-row" style="margin-bottom:14px">
           <label class="field">Theme
@@ -480,7 +519,12 @@
     music: null,         // {buffer,name,blob}
     musicVol: 0.7,
     bannerMode: "nameplate", // off | nameplate | banner (animated lower-third)
-    syncBeats: false        // snap cut lengths to the music tempo
+    syncBeats: false,       // snap cut lengths to the music tempo
+    hookText: "JUST LISTED", // opening kinetic hook
+    hookStyle: "pop",        // pop | slide | type | word | wipe
+    hookPos: "center",       // top | center | bottom
+    endHookText: "",         // closing hook (near the outro)
+    capStyle: "slide"        // caption animation: fade | slide | pop
   };
   var uid = 1;
   function newId() { return "p_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 7); }
@@ -491,6 +535,7 @@
 
   // ---------------------------------------------------------------- helpers
   function smooth(p) { p = Math.max(0, Math.min(1, p)); return p * p * (3 - 2 * p); }
+  function easeOutBack(p) { var c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(p - 1, 3) + c1 * Math.pow(p - 1, 2); }
   function autoMotion(i) { return AUTO_CYCLE[i % AUTO_CYCLE.length]; }
   function esc(s) { return (s == null ? "" : String(s)); }
   function num(v) { return (v === "" || v == null || isNaN(+v)) ? null : +v; }
@@ -927,22 +972,89 @@
     ctx.restore();
   }
 
+  // ------------------------------------------------ animated hooks (kinetic text)
+  function hookAlpha(t, win) {
+    var end = win.start + win.hold;
+    if (t < win.start || t > end) return { alpha: 0, appear: 0 };
+    var appear = Math.max(0, Math.min(1, (t - win.start) / win.ein));
+    var vanish = Math.max(0, Math.min(1, (end - t) / win.eout));
+    return { alpha: Math.min(smooth(appear), smooth(vanish)), appear: appear };
+  }
+  function drawHookLine(text, style, cx, cy, size, appear, alpha, th, s) {
+    if (!text) return;
+    var up = th.upper ? String(text).toUpperCase() : String(text);
+    var fam = th.titleSerif ? SERIF : SANS, W = canvas.width, maxW = W * 0.84;
+    ctx.font = "800 " + size + "px " + fam;
+    var full = ctx.measureText(up).width;
+    if (full > maxW) { size = Math.floor(size * maxW / full); ctx.font = "800 " + size + "px " + fam; }
+    var shown = up, scale = 1, offY = 0, wipe = 0;
+    if (style === "pop") scale = 0.62 + 0.38 * easeOutBack(appear);
+    else if (style === "slide") offY = (1 - smooth(appear)) * 48 * s;
+    else if (style === "type") shown = up.slice(0, Math.max(1, Math.ceil(appear * up.length)));
+    else if (style === "word") { var ws = up.split(" "); shown = ws.slice(0, Math.max(1, Math.ceil(appear * ws.length))).join(" "); }
+    else if (style === "wipe") wipe = appear;
+
+    ctx.save(); ctx.globalAlpha = alpha; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.translate(cx, cy + offY); ctx.scale(scale, scale);
+    ctx.font = "800 " + size + "px " + fam;
+    var tw = ctx.measureText(shown).width, thh = size * 1.2;
+    var px = tw / 2 + 30 * s, py = thh / 2 + 16 * s;
+    // scrim pill
+    ctx.fillStyle = "rgba(0,0,0,0.42)"; roundRect(-px, -py, px * 2, py * 2, 16 * s); ctx.fill();
+    // accent bar above (wipes in)
+    var bw = style === "wipe" ? (px * 2 - 24 * s) * wipe : Math.min(tw, 150 * s) * smooth(appear);
+    ctx.fillStyle = th.accent; ctx.fillRect(-bw / 2, -py - 12 * s, bw, Math.max(3, 5 * s));
+    // text
+    ctx.fillStyle = th.ink; ctx.shadowColor = "rgba(0,0,0,0.55)"; ctx.shadowBlur = 9; ctx.shadowOffsetY = 3;
+    if (style !== "wipe" || appear > 0.32) ctx.fillText(shown, 0, 0);
+    ctx.restore();
+    ctx.shadowColor = "transparent"; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+  }
+  function drawHook(t) {
+    if (!timeline.total) return;
+    var th = theme(), s = canvas.width / 720, cx = canvas.width / 2, H = canvas.height;
+    var posY = state.hookPos === "top" ? H * 0.17 : state.hookPos === "bottom" ? H * 0.8 : H * 0.5;
+    if (state.hookText) {
+      var start = (state.intro ? Math.max(0.1, 3.0 - state.trans) : 0.25) + 0.12;
+      var win = { start: start, hold: Math.min(2.6, Math.max(1.2, timeline.total * 0.5)), ein: 0.5, eout: 0.45 };
+      var a = hookAlpha(t, win);
+      if (a.alpha > 0) drawHookLine(state.hookText, state.hookStyle, cx, posY, 64 * s, a.appear, a.alpha, th, s);
+    }
+    if (state.endHookText) {
+      var outroStart = timeline.total - (state.outro ? 3.5 : 0);
+      var cend = outroStart - 0.2, cstart = cend - 2.4;
+      if (cstart > 0.5) {
+        var a2 = hookAlpha(t, { start: cstart, hold: 2.2, ein: 0.5, eout: 0.45 });
+        if (a2.alpha > 0) drawHookLine(state.endHookText, state.hookStyle, cx, H * 0.8, 54 * s, a2.appear, a2.alpha, th, s);
+      }
+    }
+  }
+
   function drawCaption(text, local, dur, W, H) {
     var th = theme(), s = W / 720;
     var a = 1;
     if (local < 0.5) a = local / 0.5;
     else if (local > dur - 0.6) a = Math.max(0, (dur - local) / 0.6);
     if (a <= 0) return;
+    // entry progress drives the slide / pop animation
+    var appear = Math.max(0, Math.min(1, local / 0.5));
+    var style = state.capStyle || "slide";
+    var offY = style === "slide" ? (1 - smooth(appear)) * 34 * s : 0;
+    var scale = style === "pop" ? (0.7 + 0.3 * easeOutBack(appear)) : 1;
+
     ctx.save(); ctx.globalAlpha = a;
-    var bandH = 130 * s, bandY = H - bandH - H * 0.06;
+    var bandH = 130 * s, bandY = H - bandH - H * 0.06 + offY;
+    var cx = W * 0.08;
+    if (scale !== 1) { ctx.translate(cx, bandY + bandH / 2); ctx.scale(scale, scale); ctx.translate(-cx, -(bandY + bandH / 2)); }
     ctx.fillStyle = "rgba(0,0,0,0.42)"; ctx.fillRect(0, bandY, W, bandH);
-    ctx.fillStyle = th.accent; ctx.fillRect(W * 0.08, bandY + bandH * 0.24, 60 * s, Math.max(2, 3 * s));
+    // accent bar wipes in with the caption
+    ctx.fillStyle = th.accent; ctx.fillRect(cx, bandY + bandH * 0.24, (60 * s) * smooth(appear), Math.max(2, 3 * s));
     var cap = th.upper ? String(text).toUpperCase() : String(text);
     var fs = fitFont(cap, "700", th.titleSerif ? SERIF : SANS, 34 * s, W * 0.84);
     ctx.font = "700 " + fs + "px " + (th.titleSerif ? SERIF : SANS);
     ctx.textAlign = "left"; ctx.textBaseline = "alphabetic"; ctx.fillStyle = th.ink;
     ctx.shadowColor = "rgba(0,0,0,0.5)"; ctx.shadowBlur = 5; ctx.shadowOffsetY = 2;
-    ctx.fillText(cap, W * 0.08, bandY + bandH * 0.66);
+    ctx.fillText(cap, cx, bandY + bandH * 0.66);
     ctx.restore();
     ctx.shadowColor = "transparent"; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
   }
@@ -983,6 +1095,7 @@
       ctx.save(); ctx.globalAlpha = alpha; drawSeg(seg, local, W, H); ctx.restore();
     }
     drawLowerThird(t);
+    drawHook(t);
 
     // open from black / close to black
     var fade = 0.5;
@@ -1287,7 +1400,7 @@
   function setMusicBlob(blob, name) { var ac = ensureAudio(); if (!ac) return Promise.resolve(); return blob.arrayBuffer().then(function (b) { return ac.decodeAudioData(b); }).then(function (audio) { state.music = { buffer: audio, name: name || "music", blob: blob }; try { state.music.beat = analyzeBeats(audio); } catch (e) { state.music.beat = null; } $("musicLabel").textContent = "Music added ✓ — " + (name || ""); updateBeatUI(); }).catch(function () {}); }
 
   // ------------------------------------------------ read/apply settings
-  function settingsObj() { return { format: state.format, theme: state.theme, accent: state.accent, clip: state.clip, trans: state.trans, intro: state.intro, outro: state.outro, musicVol: state.musicVol, bannerMode: state.bannerMode, syncBeats: state.syncBeats }; }
+  function settingsObj() { return { format: state.format, theme: state.theme, accent: state.accent, clip: state.clip, trans: state.trans, intro: state.intro, outro: state.outro, musicVol: state.musicVol, bannerMode: state.bannerMode, syncBeats: state.syncBeats, hookText: state.hookText, hookStyle: state.hookStyle, hookPos: state.hookPos, endHookText: state.endHookText, capStyle: state.capStyle }; }
   function setV(id, v) { if (v != null) $(id).value = v; }
   function applySettings(d) {
     if (!d) return;
@@ -1301,6 +1414,12 @@
     if (d.musicVol != null) { state.musicVol = d.musicVol; $("musicVol").value = Math.round(d.musicVol * 100); }
     if (d.bannerMode) { state.bannerMode = d.bannerMode; $("f_banner").value = d.bannerMode; }
     if (d.syncBeats != null) { state.syncBeats = d.syncBeats; $("f_sync").checked = d.syncBeats; }
+    if (d.hookText != null) { state.hookText = d.hookText; $("f_hook").value = d.hookText; }
+    if (d.hookStyle) { state.hookStyle = d.hookStyle; $("f_hookStyle").value = d.hookStyle; }
+    if (d.hookPos) { state.hookPos = d.hookPos; $("f_hookPos").value = d.hookPos; }
+    if (d.endHookText != null) { state.endHookText = d.endHookText; $("f_endhook").value = d.endHookText; }
+    if (d.capStyle) { state.capStyle = d.capStyle; $("f_capStyle").value = d.capStyle; }
+    updateHookChips();
   }
   function applyListing(L) { L = L || {}; setV("f_tagline", L.tagline); setV("f_address", L.address); setV("f_city", L.city); setV("f_price", L.price); setV("f_beds", L.beds); setV("f_baths", L.baths); setV("f_sqft", L.sqft); }
   function applyAgent(A) { A = A || {}; setV("f_name", A.name); setV("f_title", A.title); setV("f_brokerage", A.brokerage); setV("f_phone", A.phone); setV("f_email", A.email); setV("f_license", A.license); setV("f_cta", A.cta); }
@@ -1575,6 +1694,24 @@
     drop.addEventListener("drop", function (e) { if (e.dataTransfer && e.dataTransfer.files) handler(e.dataTransfer.files); });
   }
 
+  function hookSuggestions() {
+    var L = listing(), out = ["JUST LISTED"];
+    if (L.price) out.push(String(L.price));
+    var bb = [(L.beds != null ? L.beds + " BED" : ""), (L.baths != null ? L.baths + " BA" : "")].filter(Boolean).join("  ·  ");
+    if (bb) out.push(bb);
+    if (L.city) out.push(String(L.city).split(",")[0].toUpperCase());
+    out.push("OPEN HOUSE", "NEW PRICE", "MUST SEE");
+    return out.filter(function (v, i, a) { return v && a.indexOf(v) === i; }).slice(0, 7);
+  }
+  function updateHookChips() {
+    var box = $("hookChips"); if (!box) return; box.innerHTML = "";
+    hookSuggestions().forEach(function (txt) {
+      var b = document.createElement("button"); b.type = "button"; b.className = "tagchip"; b.textContent = txt;
+      b.onclick = function () { $("f_hook").value = txt; state.hookText = txt; rebuild(); drawAt(posterTime()); scheduleAutosave(); };
+      box.appendChild(b);
+    });
+  }
+
   function init() {
     setCanvasSize();
     ACCENTS.forEach(function (c) {
@@ -1642,9 +1779,16 @@
     $("f_sync").checked = state.syncBeats;
     $("f_sync").onchange = function () { state.syncBeats = $("f_sync").checked; rebuild(); scheduleAutosave(); };
     $("montageBtn").onclick = autoMontage;
+    $("f_hook").value = state.hookText; $("f_hookStyle").value = state.hookStyle; $("f_hookPos").value = state.hookPos; $("f_endhook").value = state.endHookText; $("f_capStyle").value = state.capStyle;
+    $("f_hook").addEventListener("input", function () { state.hookText = $("f_hook").value; rebuild(); scheduleAutosave(); });
+    $("f_hookStyle").onchange = function () { state.hookStyle = $("f_hookStyle").value; rebuild(); scheduleAutosave(); };
+    $("f_hookPos").onchange = function () { state.hookPos = $("f_hookPos").value; rebuild(); scheduleAutosave(); };
+    $("f_endhook").addEventListener("input", function () { state.endHookText = $("f_endhook").value; rebuild(); scheduleAutosave(); });
+    $("f_capStyle").onchange = function () { state.capStyle = $("f_capStyle").value; rebuild(); scheduleAutosave(); };
+    updateHookChips();
     $("musicVol").oninput = function () { state.musicVol = (+$("musicVol").value) / 100; };
     ["f_tagline","f_address","f_city","f_price","f_beds","f_baths","f_sqft","f_name","f_title","f_brokerage","f_phone","f_email","f_license","f_cta"].forEach(function (id) {
-      $(id).addEventListener("input", function () { rebuild(); scheduleAutosave(); });
+      $(id).addEventListener("input", function () { rebuild(); scheduleAutosave(); updateHookChips(); });
     });
 
     var mp4 = window.MediaRecorder && (MediaRecorder.isTypeSupported("video/mp4") || MediaRecorder.isTypeSupported("video/mp4;codecs=avc1.42E01E"));
