@@ -256,6 +256,27 @@
       </section>
 
       <section class="card">
+        <h2>Auto-montage from video &#10024;</h2>
+        <p class="desc">Drop raw clips above. The editor scans each one, picks its most dynamic, well-lit moment, and cuts them together at your chosen length &amp; orientation. Turn on beat-sync (Music) to land every cut on the beat.</p>
+        <div class="style-row">
+          <label class="field">Total length
+            <select id="f_montageLen">
+              <option value="15">15 seconds</option>
+              <option value="20">20 seconds</option>
+              <option value="30" selected>30 seconds</option>
+              <option value="45">45 seconds</option>
+              <option value="60">60 seconds</option>
+              <option value="music">Match the music</option>
+            </select>
+          </label>
+          <label class="field">Orientation
+            <div style="font-size:12px;color:var(--faint);padding-top:9px">Reel / Square / Wide — set in the header.</div>
+          </label>
+        </div>
+        <button class="btn primary" id="montageBtn" style="margin-top:14px">&#10024; Auto-create montage</button>
+      </section>
+
+      <section class="card">
         <h2>Listing details</h2>
         <p class="desc">Shown on the opening title card.</p>
         <div class="fields">
@@ -297,6 +318,20 @@
         <label class="field" style="margin-top:12px">Volume
           <input type="range" id="musicVol" min="0" max="100" value="70">
         </label>
+        <label class="toggle" style="margin-top:14px"><input type="checkbox" id="f_sync"> Sync cuts to the beat</label>
+        <div id="bpmReadout" style="font-size:12px;color:var(--accent);margin-top:6px;font-family:var(--mono)"></div>
+        <details style="margin-top:12px">
+          <summary style="cursor:pointer;color:var(--muted);font-size:12.5px">Where to get free music &#8594;</summary>
+          <div class="storage-note" style="margin-top:8px">
+            Free for commercial use, <b>no attribution</b>:
+            <a href="https://pixabay.com/music/" target="_blank" rel="noopener">Pixabay Music</a> &middot;
+            <a href="https://mixkit.co/free-stock-music/" target="_blank" rel="noopener">Mixkit</a> &middot;
+            <a href="https://www.youtube.com/audiolibrary" target="_blank" rel="noopener">YouTube Audio Library</a>.
+            Free with a credit line: <a href="https://uppbeat.io/" target="_blank" rel="noopener">Uppbeat</a>,
+            <a href="https://www.bensound.com/" target="_blank" rel="noopener">Bensound</a>.
+            Download a track, drop it above, then switch on &ldquo;Sync cuts to the beat.&rdquo;
+          </div>
+        </details>
       </section>
 
       <section class="card">
@@ -444,7 +479,8 @@
     brokerIcon: null,    // {el,url,blob}
     music: null,         // {buffer,name,blob}
     musicVol: 0.7,
-    bannerMode: "nameplate" // off | nameplate | banner (animated lower-third)
+    bannerMode: "nameplate", // off | nameplate | banner (animated lower-third)
+    syncBeats: false        // snap cut lengths to the music tempo
   };
   var uid = 1;
   function newId() { return "p_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 7); }
@@ -586,6 +622,7 @@
     var lastImg = null; for (var k = state.media.length - 1; k >= 0; k--) { if (state.media[k].kind === "image" && state.media[k].ready) { lastImg = state.media[k]; break; } }
     if (state.intro) segs.push({ type: "intro", dur: 3.0, bg: firstImg });
     var ii = 0;
+    var bi = (state.syncBeats && state.music && state.music.beat) ? state.music.beat.beatInterval : 0;
     state.media.forEach(function (m) {
       if (!m.ready) return;
       var d = state.clip;
@@ -594,8 +631,9 @@
         d = (m.dur == null) ? full : Math.min(m.dur, full);
         d = Math.max(1, d);
       }
+      if (bi) d = Math.max(bi, Math.round(d / bi) * bi);   // snap cut length to the beat
       var motion = m.kind === "video" ? "still" : (m.motion === "auto" ? autoMotion(ii) : m.motion);
-      segs.push({ type: m.kind, media: m, dur: d, motion: motion, caption: m.caption });
+      segs.push({ type: m.kind, media: m, dur: d, motion: motion, caption: m.caption, inPoint: m.kind === "video" ? (m.start || 0) : 0 });
       ii++;
     });
     if (state.outro) segs.push({ type: "outro", dur: 3.5, bg: lastImg });
@@ -1004,7 +1042,7 @@
     timeline.segs.forEach(function (seg) {
       if (seg.type !== "video") return;
       var v = seg.media.el, local = t - seg.start;
-      if (t >= seg.start && t < seg.start + seg.dur) { try { v.currentTime = Math.max(0, local); v.play(); } catch (e) {} }
+      if (t >= seg.start && t < seg.start + seg.dur) { try { v.currentTime = Math.max(0, (seg.inPoint || 0) + local); v.play(); } catch (e) {} }
       else { try { v.pause(); } catch (e) {} }
     });
   }
@@ -1018,9 +1056,9 @@
       var v = seg.media.el, inside = t >= seg.start && t < seg.start + seg.dur;
       if (!inside) { if (!v.paused) v.pause(); return; }
       if (running) {
-        if (v.paused) { try { v.currentTime = Math.max(0, t - seg.start); var p = v.play(); if (p && p.catch) p.catch(function () {}); } catch (e) {} }
+        if (v.paused) { try { v.currentTime = Math.max(0, (seg.inPoint || 0) + (t - seg.start)); var p = v.play(); if (p && p.catch) p.catch(function () {}); } catch (e) {} }
       } else {
-        try { v.currentTime = Math.max(0, t - seg.start); } catch (e) {}
+        try { v.currentTime = Math.max(0, (seg.inPoint || 0) + (t - seg.start)); } catch (e) {}
       }
     });
   }
@@ -1051,6 +1089,105 @@
     musicNodes = { src: src, g: g };
   }
   function stopMusic() { if (musicNodes) { try { musicNodes.src.stop(); } catch (e) {} musicNodes = null; } }
+
+  // ------------------------------------------------ beat detection (offline)
+  // Estimates tempo from the dropped track and builds a beat grid, all client-
+  // side. Used to snap cut lengths to the music so transitions feel on-beat.
+  function analyzeBeats(buf) {
+    var ch = buf.numberOfChannels, len = buf.length, sr = buf.sampleRate;
+    if (!len) return null;
+    var mono = new Float32Array(len);
+    for (var c = 0; c < ch; c++) { var d = buf.getChannelData(c); for (var i = 0; i < len; i++) mono[i] += d[i] / ch; }
+    var hop = 512, win = 1024, frames = Math.max(1, Math.floor((len - win) / hop));
+    var env = new Float32Array(frames);
+    for (var fr = 0; fr < frames; fr++) { var st = fr * hop, e = 0; for (var j = 0; j < win; j++) { var v = mono[st + j]; e += v * v; } env[fr] = Math.sqrt(e / win); }
+    var flux = new Float32Array(frames);
+    for (var fr2 = 1; fr2 < frames; fr2++) { var df = env[fr2] - env[fr2 - 1]; flux[fr2] = df > 0 ? df : 0; }
+    var fps = sr / hop;
+    var minLag = Math.round(fps * 60 / 180), maxLag = Math.round(fps * 60 / 60);
+    var bestLag = minLag, bestVal = -1;
+    for (var lag = minLag; lag <= maxLag; lag++) { var sum = 0; for (var fr3 = lag; fr3 < frames; fr3++) sum += flux[fr3] * flux[fr3 - lag]; if (sum > bestVal) { bestVal = sum; bestLag = lag; } }
+    var bpm = 60 * fps / bestLag;
+    while (bpm < 90) bpm *= 2; while (bpm > 180) bpm /= 2;   // fold into a musical range
+    var beatInterval = 60 / bpm;
+    var limit = Math.min(frames, Math.round(fps * 4)), firstBeat = 0, mx = -1;
+    for (var fr4 = 0; fr4 < limit; fr4++) { if (flux[fr4] > mx) { mx = flux[fr4]; firstBeat = fr4 / fps; } }
+    var beats = []; for (var t = firstBeat; t < buf.duration; t += beatInterval) beats.push(t);
+    for (var t2 = firstBeat - beatInterval; t2 > 0; t2 -= beatInterval) beats.unshift(t2);
+    return { bpm: Math.round(bpm), beatInterval: beatInterval, beats: beats };
+  }
+  function updateBeatUI() {
+    var el = $("bpmReadout"); if (!el) return;
+    if (state.music && state.music.beat) el.textContent = "Detected tempo: " + state.music.beat.bpm + " BPM";
+    else el.textContent = "";
+  }
+
+  // ------------------------------------------------ auto-montage (video)
+  var _anC = null, _anG = null;
+  function anCanvas() { if (!_anC) { _anC = document.createElement("canvas"); _anC.width = 64; _anC.height = 36; _anG = _anC.getContext("2d", { willReadFrequently: true }); } return _anG; }
+  function seekTo(v, t) {
+    return new Promise(function (res) {
+      var done = false; function on() { if (done) return; done = true; v.removeEventListener("seeked", on); res(); }
+      v.addEventListener("seeked", on); try { v.currentTime = t; } catch (e) { res(); }
+      setTimeout(function () { if (!done) { done = true; v.removeEventListener("seeked", on); res(); } }, 500);
+    });
+  }
+  // Pick the most dynamic, well-exposed `segLen` window in a raw clip.
+  function analyzeVideoInPoint(item, segLen) {
+    var v = item.el, dur = item.natDur || v.duration || 0;
+    if (!dur || dur <= segLen + 0.4) return Promise.resolve(0);
+    try { v.pause(); } catch (e) {}
+    var g = anCanvas(), pad = 0.3, startT = pad, endT = Math.max(pad + segLen, dur - pad);
+    var samples = Math.min(48, Math.max(8, Math.floor((endT - startT) * 3)));
+    var times = []; for (var i = 0; i < samples; i++) times.push(startT + (endT - startT) * i / (samples - 1));
+    var lum = [], mot = [], prev = null, idx = 0;
+    return times.reduce(function (chain, tt) {
+      return chain.then(function () { return seekTo(v, tt); }).then(function () {
+        var L = 0.5, m = 0;
+        try {
+          g.drawImage(v, 0, 0, 64, 36); var d = g.getImageData(0, 0, 64, 36).data, n = d.length / 4, s2 = 0;
+          for (var p = 0; p < d.length; p += 4) s2 += d[p] * 0.299 + d[p + 1] * 0.587 + d[p + 2] * 0.114;
+          L = s2 / n / 255;
+          if (prev) { var mm = 0; for (var q = 0; q < d.length; q += 4) mm += Math.abs(d[q] - prev[q]) + Math.abs(d[q + 1] - prev[q + 1]) + Math.abs(d[q + 2] - prev[q + 2]); m = mm / (n * 3 * 255); }
+          prev = d;
+        } catch (e) {}
+        lum[idx] = L; mot[idx] = m; idx++;
+      });
+    }, Promise.resolve()).then(function () {
+      var best = startT, bestScore = -1;
+      for (var i = 0; i < times.length; i++) {
+        var t0 = times[i]; if (t0 + segLen > endT + 0.001) break;
+        var mm = 0, ll = 0, nn = 0;
+        for (var j = i; j < times.length && times[j] <= t0 + segLen; j++) { mm += mot[j]; ll += lum[j]; nn++; }
+        if (!nn) continue; mm /= nn; ll /= nn;
+        var dark = ll < 0.14 ? (0.14 - ll) * 3 : 0, bright = ll > 0.9 ? (ll - 0.9) * 3 : 0, shake = mm > 0.3 ? (mm - 0.3) * 1.4 : 0;
+        var score = mm - dark - bright - shake;
+        if (score > bestScore) { bestScore = score; best = t0; }
+      }
+      return best;
+    });
+  }
+  function autoMontage() {
+    var vids = state.media.filter(function (m) { return m.kind === "video" && m.ready; });
+    if (!vids.length) { setStatus("Drop one or more raw video clips first, then Auto-create.", "err"); return; }
+    var sel = $("f_montageLen").value;
+    var T = sel === "music" ? (state.music && state.music.buffer ? state.music.buffer.duration : 30) : (+sel || 30);
+    var N = vids.length;
+    var bi = (state.syncBeats && state.music && state.music.beat) ? state.music.beat.beatInterval : 0;
+    var segLen = Math.max(1.5, Math.min(6, T / N));
+    if (bi) segLen = Math.max(bi, Math.round(segLen / bi) * bi);
+    $("montageBtn").disabled = true;
+    var i = 0;
+    (function next() {
+      if (i >= vids.length) {
+        $("montageBtn").disabled = false; renderList(); rebuild(); drawAt(posterTime()); scheduleAutosave();
+        setStatus("Montage built — " + N + " clips · " + fmt(timeline.total) + "s" + (bi ? " · beat-synced " + state.music.beat.bpm + " BPM" : "") + ".", "ok");
+        return;
+      }
+      setStatus("Analyzing clip " + (i + 1) + "/" + N + " for the best moment…");
+      analyzeVideoInPoint(vids[i], segLen).then(function (ip) { vids[i].start = Math.max(0, ip); vids[i].dur = segLen; i++; next(); });
+    })();
+  }
 
   // ---------------------------------------------------------------- export
   function pickMime() {
@@ -1147,10 +1284,10 @@
   function setHeadshot(blob) { imgFromBlob(blob, function (o) { state.headshot = o; rebuild(); }); }
   function setBanner(blob) { imgFromBlob(blob, function (o) { state.banner = o; rebuild(); }); }
   function setBrokerIcon(blob) { imgFromBlob(blob, function (o) { state.brokerIcon = o; rebuild(); }); }
-  function setMusicBlob(blob, name) { var ac = ensureAudio(); if (!ac) return Promise.resolve(); return blob.arrayBuffer().then(function (b) { return ac.decodeAudioData(b); }).then(function (audio) { state.music = { buffer: audio, name: name || "music", blob: blob }; $("musicLabel").textContent = "Music added ✓ — " + (name || ""); }).catch(function () {}); }
+  function setMusicBlob(blob, name) { var ac = ensureAudio(); if (!ac) return Promise.resolve(); return blob.arrayBuffer().then(function (b) { return ac.decodeAudioData(b); }).then(function (audio) { state.music = { buffer: audio, name: name || "music", blob: blob }; try { state.music.beat = analyzeBeats(audio); } catch (e) { state.music.beat = null; } $("musicLabel").textContent = "Music added ✓ — " + (name || ""); updateBeatUI(); }).catch(function () {}); }
 
   // ------------------------------------------------ read/apply settings
-  function settingsObj() { return { format: state.format, theme: state.theme, accent: state.accent, clip: state.clip, trans: state.trans, intro: state.intro, outro: state.outro, musicVol: state.musicVol, bannerMode: state.bannerMode }; }
+  function settingsObj() { return { format: state.format, theme: state.theme, accent: state.accent, clip: state.clip, trans: state.trans, intro: state.intro, outro: state.outro, musicVol: state.musicVol, bannerMode: state.bannerMode, syncBeats: state.syncBeats }; }
   function setV(id, v) { if (v != null) $(id).value = v; }
   function applySettings(d) {
     if (!d) return;
@@ -1163,6 +1300,7 @@
     if (d.outro != null) { state.outro = d.outro; $("f_outro").checked = d.outro; }
     if (d.musicVol != null) { state.musicVol = d.musicVol; $("musicVol").value = Math.round(d.musicVol * 100); }
     if (d.bannerMode) { state.bannerMode = d.bannerMode; $("f_banner").value = d.bannerMode; }
+    if (d.syncBeats != null) { state.syncBeats = d.syncBeats; $("f_sync").checked = d.syncBeats; }
   }
   function applyListing(L) { L = L || {}; setV("f_tagline", L.tagline); setV("f_address", L.address); setV("f_city", L.city); setV("f_price", L.price); setV("f_beds", L.beds); setV("f_baths", L.baths); setV("f_sqft", L.sqft); }
   function applyAgent(A) { A = A || {}; setV("f_name", A.name); setV("f_title", A.title); setV("f_brokerage", A.brokerage); setV("f_phone", A.phone); setV("f_email", A.email); setV("f_license", A.license); setV("f_cta", A.cta); }
@@ -1501,6 +1639,9 @@
     $("f_outro").onchange = function () { state.outro = $("f_outro").checked; rebuild(); scheduleAutosave(); };
     $("f_banner").value = state.bannerMode;
     $("f_banner").onchange = function () { state.bannerMode = $("f_banner").value; rebuild(); scheduleAutosave(); };
+    $("f_sync").checked = state.syncBeats;
+    $("f_sync").onchange = function () { state.syncBeats = $("f_sync").checked; rebuild(); scheduleAutosave(); };
+    $("montageBtn").onclick = autoMontage;
     $("musicVol").oninput = function () { state.musicVol = (+$("musicVol").value) / 100; };
     ["f_tagline","f_address","f_city","f_price","f_beds","f_baths","f_sqft","f_name","f_title","f_brokerage","f_phone","f_email","f_license","f_cta"].forEach(function (id) {
       $(id).addEventListener("input", function () { rebuild(); scheduleAutosave(); });

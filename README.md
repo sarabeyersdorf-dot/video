@@ -65,6 +65,15 @@ The app also includes:
 - **Photos + video together.** Drop property photos and drone/walk-through clips
   into the same reel; the clips play inline with the stills, with your music and
   branding over the whole thing.
+- **Auto-montage from raw video.** Drop several raw clips, pick a total length
+  (15–60s or "match the music") and orientation, and the editor scans each clip,
+  finds its most dynamic, well-lit moment, and cuts them into a montage for you.
+- **Beat-sync.** It detects the tempo of your music and snaps every cut to the
+  beat so transitions land on the downbeat. Free-to-use music sources (Pixabay,
+  Mixkit, YouTube Audio Library — commercial use, no attribution) are linked
+  right in the Music panel.
+- **Animated agent nameplate** that slides in over the footage, plus a headshot
+  chip, from your Brand Kit.
 
 > On the shareable claude.ai link, browser storage can be cleared between visits,
 > so for a permanent library use the downloaded/hosted copy of `web/studio.html`,
