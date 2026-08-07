@@ -1,6 +1,7 @@
 node_modules/
 demo/
 output/
+listing/
 *.log
 .DS_Store
 # Rendered videos and per-project assets/photos are not committed

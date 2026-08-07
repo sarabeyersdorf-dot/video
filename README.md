@@ -25,7 +25,7 @@ Each photo gets a smooth cinematic camera move — the same moves the paid tools
 | `pull-out` | slow zoom out — reveals the whole space |
 | `pan-left` / `pan-right` | glide across wide rooms & views |
 | `pan-up` / `pan-down` | tilt up façades / down staircases |
-| `drone-up` | rising "drone reveal" |
+| `drone-up` | rising "drone reveal" (2D; see the parallax engine for a 3D version) |
 | `ken-burns` | diagonal zoom + drift |
 | `still` | almost no motion |
 
@@ -42,7 +42,62 @@ Export any aspect ratio from the same photos:
 
 ---
 
-## Install
+## Two ways to use it
+
+**A. Browser app — no install (`web/studio.html`)**
+Open `web/studio.html` in Chrome, Edge, or Safari (double-click it, or host it on
+your site). Drag in photos, drone clips, your logo, and music; fill in the listing
+and your branding; preview live; and click **Export video** to download a finished
+reel. It renders 100% in the browser — nothing is uploaded — so you can also share
+the page link with clients and they can make their own. Best for quick, on-the-spot
+videos and non-technical use.
+
+The app also includes:
+
+- **Projects (drafts & finals).** Your work — *including the photos and video
+  clips* — is auto-saved to the browser and kept in a Projects library. Save a
+  **draft** to keep working, or a **final** when it's done; reopen either anytime.
+  Nothing is lost when you leave. Use **Projects → Export** to save a portable
+  project file (media included) you can move between computers or back up.
+- **Brand Kit.** A settings menu that stores your logo, agent headshot, a
+  banner/nameplate, a broker icon, and all your contact info **once** — then
+  applies them to every new video automatically.
+- **Photos + video together.** Drop property photos and drone/walk-through clips
+  into the same reel; the clips play inline with the stills, with your music and
+  branding over the whole thing.
+- **Auto-montage from raw video.** Drop several raw clips, pick a total length
+  (15–60s or "match the music") and orientation, and the editor scans each clip,
+  finds its most dynamic, well-lit moment, and cuts them into a montage for you.
+- **Beat-sync.** It detects the tempo of your music and snaps every cut to the
+  beat so transitions land on the downbeat. Free-to-use music sources (Pixabay,
+  Mixkit, YouTube Audio Library — commercial use, no attribution) are linked
+  right in the Music panel.
+- **Animated agent nameplate** that slides in over the footage, plus a headshot
+  chip, from your Brand Kit.
+- **Hooks & animated captions.** A punchy opening hook ("JUST LISTED", the price,
+  "4 BED · 3 BA", the city — one-tap suggestions from your listing) animates in
+  over the first seconds with a pop / slide / typewriter / word-by-word / bar-wipe
+  style, plus an optional closing hook. Per-clip captions now animate in (slide /
+  pop / fade) with an accent-bar wipe.
+- **One-click multi-format export.** Tick any of Reel 9:16 / Square 1:1 / Wide 16:9
+  and Export once — it renders each size in turn and saves all of them, so the same
+  listing is ready for Instagram, the feed, and YouTube/MLS without re-editing.
+- **Voiceover.** The app writes a narration script from your listing; hear it read
+  by a computer voice to check pacing, then either **record it in your own voice**
+  (one tap) or **import an AI-voice file** — the narration is mixed into the export
+  and the music **ducks** automatically underneath it. (Browser speech can't be
+  captured into a video file, so the recorded/imported track is what lands in the
+  export.)
+
+> On the shareable claude.ai link, browser storage can be cleared between visits,
+> so for a permanent library use the downloaded/hosted copy of `web/studio.html`,
+> or keep projects with **Projects → Export**.
+
+**B. Command-line tool — for power & scale (below)**
+1080p output, batch rendering, the depth-parallax engine, and the pluggable AI
+layer. Best when you make lots of videos or want the highest quality.
+
+## Install (command-line tool)
 
 You need **[FFmpeg](https://ffmpeg.org/download.html)** (the free video engine) and
 **Node.js 18+**.
@@ -188,12 +243,60 @@ Run `reel create --help` for the full list.
 
 ---
 
-## Optional: true AI-generative motion
+## Drone fly-overs & aerial looks
 
-The default engine (Ken Burns–style camera motion) needs no API keys and is what
-most listing reels use. If you want **generative** motion — parallax, moving
-water, drifting clouds, walk-throughs — you can hand each photo to an external
-image-to-video model (Higgsfield, Runway, Kling, Luma, …) via the `ai` block:
+There are three ways to get real drone/aerial-style motion, from free to premium:
+
+### 1. Your own drone footage & aerial photos (free, best quality)
+
+If you already have drone clips or aerial shots, just list them like any photo —
+`.mp4`, `.mov`, `.webm` are all fine. They're trimmed and dropped straight into
+the same branded intro / caption / music / outro pipeline, mixed freely with stills:
+
+```jsonc
+"photos": [
+  { "file": "photos/00-drone-flyover.mp4", "duration": "full", "caption": "Aerial Tour" },
+  { "file": "photos/01-exterior.jpg", "motion": "push-in", "caption": "Grand Entrance" }
+]
+```
+
+- `"duration": "full"` uses the whole clip; a number uses that many seconds.
+- `"start": 6` trims the first 6 seconds off the front.
+
+### 2. Local 2.5D depth parallax (free, on your machine)
+
+The default `kenburns` engine moves a flat photo (zoom/pan). The **`parallax`**
+engine estimates a **depth map** and moves the photo in 3D, so near objects shift
+more than far ones — a real dimensional "push through" a room, not a flat zoom:
+
+```bash
+reel create listing.json --engine parallax
+```
+
+or per-photo: `{ "file": "kitchen.jpg", "engine": "parallax" }`.
+
+For good depth, install a depth model once (runs on CPU, no GPU needed):
+
+```bash
+pip install numpy pillow torch transformers
+python3 tools/estimate_depth.py photos/      # writes photos/<name>.depth.png
+```
+
+ListingReel picks those depth maps up automatically. Without a model it falls
+back to numpy+Pillow with a crude heuristic depth (works, but flatter). Keep
+parallax moves subtle — from a single photo, big moves reveal edges the photo
+never captured (this is true of every photo-to-3D tool).
+
+> **What this is not:** neither engine can fly *through* a wall into a room the
+> photo doesn't show, or invent an aerial shot from a ground-level photo — that
+> needs real footage (option 1) or generative AI (option 3).
+
+### 3. Generative AI (premium, per-clip credits)
+
+For genuine generative motion from a single photo — drone-like moves with real
+parallax, moving water, drifting clouds, walk-throughs — hand each photo to an
+external image-to-video model (Higgsfield, Runway, Kling, Luma, …) via the `ai`
+block. This is the closest match to what the paid websites do for those shots:
 
 ```jsonc
 "ai": {

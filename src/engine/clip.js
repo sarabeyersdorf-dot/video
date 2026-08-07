@@ -108,7 +108,7 @@ export async function renderClip({
 
 // Normalise an AI-generated (or any) source video into a timeline clip: cover
 // the target frame, pin fps/duration, and optionally burn in a caption.
-export async function renderFromVideo({ input, out, duration, W, H, fps, caption, theme, dir, onProgress }) {
+export async function renderFromVideo({ input, out, duration, start = 0, W, H, fps, caption, theme, dir, onProgress }) {
   const frames = Math.max(1, Math.round(duration * fps));
   const s = W / 1080;
   const chain = [
@@ -134,9 +134,12 @@ export async function renderFromVideo({ input, out, duration, W, H, fps, caption
   }
   chain.push('format=yuv420p');
 
+  const seek = start > 0 ? ['-ss', String(start)] : [];
   await runFfmpeg(
     [
+      ...seek,
       '-i', input,
+      '-t', String(duration),
       '-vf', chain.join(','),
       '-frames:v', String(frames),
       '-c:v', 'libx264', '-preset', 'medium', '-crf', '18', '-pix_fmt', 'yuv420p', '-an',

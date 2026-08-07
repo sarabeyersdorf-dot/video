@@ -31,9 +31,11 @@ async function runRender(project, opts) {
 
   log.info('');
   log.info(color.bold('  ListingReel'));
+  const nVid = project.photos.filter((p) => p.type === 'video').length;
   log.detail(`format   ${project.format.key} — ${project.format.width}x${project.format.height}`);
   log.detail(`theme    ${project.theme.key}  accent ${project.theme.accent}`);
-  log.detail(`photos   ${project.photos.length}   clip ${project.clipDuration}s   fps ${project.fps}`);
+  log.detail(`engine   ${project.ai ? 'ai (' + project.ai.provider + ')' : project.engine}`);
+  log.detail(`media    ${project.photos.length} clips (${project.photos.length - nVid} photos, ${nVid} video)   clip ${project.clipDuration}s   fps ${project.fps}`);
   log.detail(`music    ${project.music ? path.basename(project.music) : 'none'}`);
   log.detail(`output   ${project.outputFile}`);
   log.info('');
@@ -68,6 +70,7 @@ export function buildProgram() {
     .option('--accent <hex>', 'accent color, e.g. #C6A15B')
     .option('-m, --music <file>', 'background music file')
     .option('--motion <name>', 'force one motion for all photos (default: auto-varied)')
+    .option('--engine <name>', 'motion engine: kenburns (2D, default) or parallax (local 2.5D depth)')
     .option('--transition <name>', 'transition style: auto, random, or a specific name')
     .option('--clip-duration <sec>', 'seconds per photo', parseFloat)
     .option('--fps <n>', 'frames per second', parseInt)
@@ -87,6 +90,7 @@ export function buildProgram() {
         accent: o.accent,
         music: o.music,
         motion: o.motion,
+        engine: o.engine,
         transition: o.transition,
         clipDuration: o.clipDuration,
         fps: o.fps,
@@ -168,9 +172,12 @@ export function buildProgram() {
     .command('motions')
     .description('List available camera motions')
     .action(() => {
-      log.info(color.bold('Camera motions:'));
+      log.info(color.bold('Camera motions (kenburns engine, 2D):'));
       for (const m of MOTIONS) log.detail(m);
       log.detail('auto  (default — varies motion per photo)');
+      log.info(color.bold('\nParallax engine (2.5D depth) — use --engine parallax:'));
+      log.detail('parallax-push, parallax-pull, parallax-left, parallax-right,');
+      log.detail('parallax-up, parallax-down  (or reuse the names above — they map over)');
     });
 
   program

@@ -11,12 +11,13 @@
 import { mkdtempSync, rmSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
-import { runFfmpeg } from './ffmpeg.js';
+import { runFfmpeg, probeDuration } from './ffmpeg.js';
 import { renderClip, renderFromVideo } from './clip.js';
 import { renderCard, introElements, outroElements } from './cards.js';
 import { buildXfadeChain } from './transitions.js';
 import { musicInput } from './music.js';
 import { getProvider } from '../ai/provider.js';
+import { renderParallaxClip, assertParallaxAvailable } from './parallax.js';
 import { log, progress, color } from '../util/log.js';
 
 export async function assemble(project, { keepTemp = false } = {}) {
@@ -31,6 +32,18 @@ export async function assemble(project, { keepTemp = false } = {}) {
 
   const provider = getProvider(project.ai);
   if (provider) log.detail(`AI motion via "${provider.name}" provider`);
+
+  // Card backgrounds must be stills — pick the first/last image (skip videos).
+  const imageEntries = project.photos.filter((p) => p.type === 'image');
+  const firstPhoto = imageEntries[0]?.file || null;
+  const lastPhoto = imageEntries[imageEntries.length - 1]?.file || null;
+
+  // If any photo uses the parallax engine, make sure Python is ready up front.
+  const usesParallax = project.photos.some((p) => p.type === 'image' && p.engine === 'parallax');
+  if (usesParallax && !provider) {
+    await assertParallaxAvailable();
+    log.detail('2.5D parallax engine (depth-based)');
+  }
 
   const clips = []; // { file, duration }
   try {
@@ -49,7 +62,7 @@ export async function assemble(project, { keepTemp = false } = {}) {
         duration: project.introDuration,
         theme,
         elements: introElements(project.listing, theme, scale),
-        bgPhoto: project.photos[0]?.file,
+        bgPhoto: firstPhoto,
         logo: project.agent.logo || null,
         logoTopPct: 0.1,
         onProgress: (f, tot) => progress('intro card', f, tot),
@@ -57,41 +70,57 @@ export async function assemble(project, { keepTemp = false } = {}) {
       clips.push({ file: out, duration: project.introDuration });
     }
 
-    // 2. Photo motion clips -------------------------------------------------
+    // 2. Photo / footage motion clips --------------------------------------
     for (let i = 0; i < project.photos.length; i++) {
       const p = project.photos[i];
       const out = path.join(work, `clip_${String(i).padStart(3, '0')}.mp4`);
+
+      // Resolve the effective clip duration (videos may be trimmed / "full").
+      let dur = p.duration;
+      if (p.type === 'video') {
+        const avail = Math.max(0.1, (await probeDuration(p.file).catch(() => 0)) - (p.start || 0));
+        dur = p.duration === 'full' ? avail : Math.min(Number(p.duration), avail);
+      }
+
+      const kind =
+        p.type === 'video' ? 'video' : provider ? 'ai' : p.engine === 'parallax' ? 'parallax' : p.motion;
       log.step(
-        `Rendering photo ${i + 1}/${project.photos.length}: ${color.gray(path.basename(p.file))} ` +
-          `${color.accent(p.motion)} ${color.gray(`(${++stepN}/${totalSteps})`)}`
+        `Rendering ${p.type === 'video' ? 'footage' : 'photo'} ${i + 1}/${project.photos.length}: ` +
+          `${color.gray(path.basename(p.file))} ${color.accent(kind)} ${color.gray(`(${++stepN}/${totalSteps})`)}`
       );
-      if (provider) {
-        // Generative motion: let the external model produce a raw clip, then
-        // normalise it into the timeline (and burn any caption).
-        const raw = path.join(work, `ai_${String(i).padStart(3, '0')}.mp4`);
-        await provider.imageToVideo({
-          image: p.file, out: raw, motion: p.motion, duration: p.duration,
-          width: W, height: H, fps,
-        });
+
+      if (p.type === 'video') {
+        // Your own drone / aerial footage — trim + fit into the timeline.
         await renderFromVideo({
-          input: raw, out, duration: p.duration, W, H, fps,
+          input: p.file, out, duration: dur, start: p.start || 0, W, H, fps,
           caption: p.caption, theme, dir: work,
-          onProgress: (f, tot) => progress('ai clip', f, tot),
+          onProgress: (f, tot) => progress('footage', f, tot),
         });
+      } else if (provider) {
+        // Generative AI motion: external model makes a raw clip, then normalise.
+        const raw = path.join(work, `ai_${String(i).padStart(3, '0')}.mp4`);
+        await provider.imageToVideo({ image: p.file, out: raw, motion: p.motion, duration: dur, width: W, height: H, fps });
+        await renderFromVideo({ input: raw, out, duration: dur, W, H, fps, caption: p.caption, theme, dir: work, onProgress: (f, tot) => progress('ai clip', f, tot) });
+      } else if (p.engine === 'parallax') {
+        // Local 2.5D depth parallax.
+        const raw = p.caption ? path.join(work, `px_${String(i).padStart(3, '0')}.mp4`) : out;
+        await renderParallaxClip({
+          photo: p.file, out: raw, motion: p.motion, duration: dur, W, H, fps,
+          amplitude: project.parallax.amplitude, zoom: project.parallax.zoom,
+          depth: p.depth, depthCmd: project.parallax.depthCmd, invertDepth: project.parallax.invertDepth,
+        });
+        if (p.caption) {
+          await renderFromVideo({ input: raw, out, duration: dur, W, H, fps, caption: p.caption, theme, dir: work, onProgress: (f, tot) => progress('parallax', f, tot) });
+        }
       } else {
+        // Default 2D Ken Burns engine.
         await renderClip({
-          photo: p.file,
-          out,
-          motion: p.motion,
-          duration: p.duration,
-          W, H, fps,
-          caption: p.caption,
-          theme,
-          dir: work,
+          photo: p.file, out, motion: p.motion, duration: dur, W, H, fps,
+          caption: p.caption, theme, dir: work,
           onProgress: (f, tot) => progress(p.motion, f, tot),
         });
       }
-      clips.push({ file: out, duration: p.duration });
+      clips.push({ file: out, duration: dur });
     }
 
     // 3. Outro / branding card ---------------------------------------------
@@ -105,7 +134,7 @@ export async function assemble(project, { keepTemp = false } = {}) {
         duration: project.outroDuration,
         theme,
         elements: outroElements(project.agent, theme, scale, project.cta),
-        bgPhoto: project.photos[project.photos.length - 1]?.file,
+        bgPhoto: lastPhoto,
         logo: project.agent.logo || null,
         logoTopPct: 0.08,
         onProgress: (f, tot) => progress('branding card', f, tot),
