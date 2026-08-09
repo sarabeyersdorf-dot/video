@@ -631,6 +631,7 @@
               <option value="top">Top</option>
               <option value="center">Center</option>
               <option value="bottom">Bottom</option>
+              <option value="custom">Custom (dragged)</option>
             </select>
           </label>
         </div>
@@ -650,6 +651,7 @@
               <option value="top">Top</option>
               <option value="center">Center</option>
               <option value="bottom">Bottom</option>
+              <option value="custom">Custom (dragged)</option>
             </select>
           </label>
         </div>
@@ -657,9 +659,13 @@
           <select id="f_ltPos">
             <option value="bottom">Bottom</option>
             <option value="top">Top</option>
+            <option value="custom">Custom (dragged)</option>
           </select>
-          <span class="hint">Move the photo caption and the agent nameplate to opposite ends so they never overlap.</span>
         </label>
+        <div class="drag-note" style="margin-top:12px">
+          <span class="hint"><b>Tip:</b> in the preview, <b>drag any text block</b> — caption, hook or agent nameplate — to place it exactly where you want. Pause first; a dashed gold outline shows what's draggable.</span>
+          <button class="btn ghost" id="resetTextPos" style="margin-top:8px">↺ Reset text positions</button>
+        </div>
       </section>
 
       <section class="card">
@@ -3122,6 +3128,7 @@ var qrcode = function() {
     capStyle: "slide",       // caption animation: fade | slide | pop
     capPos: "bottom",        // photo caption position: top | center | bottom
     ltPos: "bottom",         // agent nameplate / banner position: top | bottom
+    textPos: {},             // free-drag overrides: { caption|hook|nameplate: {x,y} normalized centers }
     voScript: "",            // narration script
     voice: null,             // {blob,buffer,name,duration}
     voVolume: 1.0,
@@ -3140,6 +3147,18 @@ var qrcode = function() {
 
   var $ = function (id) { return document.getElementById(id); };
   var canvas = $("stage"), ctx = canvas.getContext("2d");
+  var hitBoxes = {};          // {key: {x,y,w,h}} of draggable text blocks, set each draw
+  var dragText = null;        // {key, offx, offy} while dragging a block
+  var hoverKey = null;        // block under the cursor (for the move affordance)
+  function clampN(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+  // record a draggable block: preset center + size -> final center (custom override), and store its hit box
+  function placeText(key, presetCx, presetCy, w, h, W, H) {
+    var custom = state.textPos && state.textPos[key];
+    var cx = custom ? clampN(custom.x * W, w / 2, W - w / 2) : presetCx;
+    var cy = custom ? clampN(custom.y * H, h / 2, H - h / 2) : presetCy;
+    hitBoxes[key] = { x: cx - w / 2, y: cy - h / 2, w: w, h: h };
+    return { cx: cx, cy: cy };
+  }
   var audioCtx = null;
 
   // ---------------------------------------------------------------- helpers
@@ -3623,9 +3642,10 @@ var qrcode = function() {
     var atTop = state.ltPos === "top";
     if (state.bannerMode === "banner" && state.banner && state.banner.el && state.banner.el.complete) {
       var bn = state.banner.el, bw = bn.naturalWidth || 1, bh = bn.naturalHeight || 1;
-      var w = Math.min(W * 0.74, 560 * s), h = w * (bh / bw), x = (W - w) / 2;
-      var y = (atTop ? 46 * s : H - h - 46 * s) + offY;
-      ctx.drawImage(bn, x, y, w, h);
+      var w = Math.min(W * 0.74, 560 * s), h = w * (bh / bw);
+      var presetCy = (atTop ? 46 * s + h / 2 : H - h / 2 - 46 * s);
+      var bp = placeText("nameplate", W / 2, presetCy, w, h, W, H);
+      ctx.drawImage(bn, bp.cx - w / 2, bp.cy - h / 2 + offY, w, h);
       ctx.restore();
       return;
     }
@@ -3656,7 +3676,11 @@ var qrcode = function() {
     var boxX = padX - 16 * s;
     var boxW = (textLeft - boxX) + blockW + 26 * s;
     var boxH = blockH + 34 * s;
-    var boxTop = (atTop ? 40 * s : H - 150 * s) + offY;
+    var boxTop = (atTop ? 40 * s : H - 150 * s);   // resting top (no entry offset)
+
+    // free-drag placement: shift the whole nameplate to its custom / preset center
+    var np = placeText("nameplate", boxX + boxW / 2, boxTop + boxH / 2, boxW, boxH, W, H);
+    ctx.translate(np.cx - (boxX + boxW / 2), (np.cy - (boxTop + boxH / 2)) + offY);
 
     // scrim
     ctx.fillStyle = "rgba(0,0,0,0.44)";
@@ -3725,15 +3749,29 @@ var qrcode = function() {
     ctx.restore();
     ctx.shadowColor = "transparent"; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
   }
+  // resting pill size of a hook line (for the drag hit box)
+  function hookBoxSize(text, size, th, s) {
+    var up = th.upper ? String(text).toUpperCase() : String(text);
+    var fam = th.titleSerif ? SERIF : SANS, W = canvas.width, maxW = W * 0.84;
+    ctx.font = "800 " + size + "px " + fam;
+    var full = ctx.measureText(up).width;
+    if (full > maxW) { size = Math.floor(size * maxW / full); ctx.font = "800 " + size + "px " + fam; }
+    var tw = ctx.measureText(up).width, thh = size * 1.2;
+    return { w: (tw / 2 + 30 * s) * 2, h: (thh / 2 + 16 * s) * 2 };
+  }
   function drawHook(t) {
     if (!timeline.total) return;
-    var th = theme(), s = canvas.width / 720, cx = canvas.width / 2, H = canvas.height;
+    var th = theme(), s = canvas.width / 720, cx = canvas.width / 2, W = canvas.width, H = canvas.height;
     var posY = state.hookPos === "top" ? H * 0.17 : state.hookPos === "bottom" ? H * 0.8 : H * 0.5;
     if (state.hookText) {
       var start = firstMediaStart() + 0.12;
       var win = { start: start, hold: Math.min(2.6, Math.max(1.2, timeline.total * 0.5)), ein: 0.5, eout: 0.45 };
       var a = hookAlpha(t, win);
-      if (a.alpha > 0) drawHookLine(state.hookText, state.hookStyle, cx, posY, 64 * s, a.appear, a.alpha, th, s);
+      if (a.alpha > 0) {
+        var hb = hookBoxSize(state.hookText, 64 * s, th, s);
+        var hp = placeText("hook", cx, posY, hb.w, hb.h, W, H);
+        drawHookLine(state.hookText, state.hookStyle, hp.cx, hp.cy, 64 * s, a.appear, a.alpha, th, s);
+      }
     }
     if (state.endHookText) {
       var cend = lastMediaEnd() - 0.2, cstart = cend - 2.4;
@@ -3756,24 +3794,27 @@ var qrcode = function() {
     var offY = style === "slide" ? (1 - smooth(appear)) * 34 * s : 0;
     var scale = style === "pop" ? (0.7 + 0.3 * easeOutBack(appear)) : 1;
 
-    ctx.save(); ctx.globalAlpha = a;
-    var bandH = 130 * s;
-    var pos = state.capPos || "bottom";
-    var baseY = pos === "top" ? H * 0.09
-              : pos === "center" ? (H - bandH) / 2
-              : H - bandH - H * 0.06;
-    var bandY = baseY + offY;
-    var cx = W * 0.08;
-    if (scale !== 1) { ctx.translate(cx, bandY + bandH / 2); ctx.scale(scale, scale); ctx.translate(-cx, -(bandY + bandH / 2)); }
-    ctx.fillStyle = "rgba(0,0,0,0.42)"; ctx.fillRect(0, bandY, W, bandH);
-    // accent bar wipes in with the caption
-    ctx.fillStyle = th.accent; ctx.fillRect(cx, bandY + bandH * 0.24, (60 * s) * smooth(appear), Math.max(2, 3 * s));
+    // self-sized pill (so it can be freely placed) with a left accent bar
     var cap = th.upper ? String(text).toUpperCase() : String(text);
-    var fs = fitFont(cap, "700", th.titleSerif ? SERIF : SANS, 34 * s, W * 0.84);
-    ctx.font = "700 " + fs + "px " + (th.titleSerif ? SERIF : SANS);
-    ctx.textAlign = "left"; ctx.textBaseline = "alphabetic"; ctx.fillStyle = th.ink;
+    var fam = th.titleSerif ? SERIF : SANS;
+    var fs = fitFont(cap, "700", fam, 34 * s, W * 0.72);
+    ctx.font = "700 " + fs + "px " + fam;
+    var tw = ctx.measureText(cap).width;
+    var padX = 30 * s, padY = 22 * s, barW = 4 * s, barGap = 16 * s;
+    var pillW = padX * 2 + barW + barGap + tw, pillH = padY * 2 + fs;
+    var pos = state.capPos || "bottom";
+    var presetCy = pos === "top" ? H * 0.14 : pos === "center" ? H * 0.5 : H * 0.86;
+    var place = placeText("caption", W / 2, presetCy, pillW, pillH, W, H);
+
+    ctx.save(); ctx.globalAlpha = a;
+    ctx.translate(place.cx, place.cy + offY); ctx.scale(scale, scale);
+    ctx.fillStyle = "rgba(0,0,0,0.46)"; roundRect(-pillW / 2, -pillH / 2, pillW, pillH, 14 * s); ctx.fill();
+    var barX = -pillW / 2 + padX, barH = (pillH - padY) * smooth(appear);
+    ctx.fillStyle = th.accent; ctx.fillRect(barX, -barH / 2, barW, barH);
+    ctx.fillStyle = th.ink; ctx.textAlign = "left"; ctx.textBaseline = "middle";
     ctx.shadowColor = "rgba(0,0,0,0.5)"; ctx.shadowBlur = 5; ctx.shadowOffsetY = 2;
-    ctx.fillText(cap, cx, bandY + bandH * 0.66);
+    ctx.font = "700 " + fs + "px " + fam;
+    ctx.fillText(cap, barX + barW + barGap, 0);
     ctx.restore();
     ctx.shadowColor = "transparent"; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
   }
@@ -3939,6 +3980,7 @@ var qrcode = function() {
     var W = canvas.width, H = canvas.height;
     ctx.clearRect(0, 0, W, H);
     ctx.fillStyle = "#000"; ctx.fillRect(0, 0, W, H);
+    hitBoxes = {};   // repopulated by the draggable text blocks below
     var segs = timeline.segs;
     if (!segs.length) { drawPlaceholder(W, H); return; }
     // find active segments
@@ -3962,6 +4004,88 @@ var qrcode = function() {
     var fade = 0.5;
     if (t < fade) { ctx.fillStyle = "rgba(0,0,0," + (1 - t / fade) + ")"; ctx.fillRect(0, 0, W, H); }
     if (t > timeline.total - fade) { ctx.fillStyle = "rgba(0,0,0," + Math.max(0, 1 - (timeline.total - t) / fade) + ")"; ctx.fillRect(0, 0, W, H); }
+
+    // drag affordances — only on the live preview, never in the recorded export
+    if (!playing && !exporting) drawDragHandles(W, H);
+  }
+
+  // dashed outline + move dots on each draggable block that's currently on screen
+  function drawDragHandles(W, H) {
+    var s = W / 720;
+    for (var key in hitBoxes) {
+      if (!hitBoxes.hasOwnProperty(key)) continue;
+      var b = hitBoxes[key], on = key === hoverKey || (dragText && dragText.key === key);
+      ctx.save();
+      ctx.setLineDash([8 * s, 6 * s]);
+      ctx.lineWidth = Math.max(1.5, 2 * s);
+      ctx.strokeStyle = on ? "rgba(224,178,60,0.95)" : "rgba(224,178,60,0.45)";
+      var pad = 6 * s;
+      roundRect(b.x - pad, b.y - pad, b.w + pad * 2, b.h + pad * 2, 10 * s); ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  // -------- free-drag: move caption / hook / nameplate anywhere on the frame
+  function canvasPt(e) {
+    var r = canvas.getBoundingClientRect();
+    return { x: (e.clientX - r.left) * (canvas.width / r.width), y: (e.clientY - r.top) * (canvas.height / r.height) };
+  }
+  function hitText(x, y) {
+    var best = null, bestArea = Infinity, m = 8 * (canvas.width / 720);
+    for (var k in hitBoxes) {
+      if (!hitBoxes.hasOwnProperty(k)) continue;
+      var b = hitBoxes[k];
+      if (x >= b.x - m && x <= b.x + b.w + m && y >= b.y - m && y <= b.y + b.h + m) {
+        var area = b.w * b.h; if (area < bestArea) { bestArea = area; best = k; }
+      }
+    }
+    return best;
+  }
+  function previewT() { return (playhead > 0.05 ? Math.min(playhead, timeline.total) : posterTime()); }
+  function redrawPreview() { if (!playing) drawAt(previewT()); }
+  function markCustom(key) {
+    var sel = key === "caption" ? $("f_capPos") : key === "hook" ? $("f_hookPos") : key === "nameplate" ? $("f_ltPos") : null;
+    if (sel && sel.value !== "custom") sel.value = "custom";
+  }
+  function clearCustom(key) { if (state.textPos && state.textPos[key]) { delete state.textPos[key]; } }
+  function onCanvasDown(e) {
+    if (playing) return;
+    var p = canvasPt(e), k = hitText(p.x, p.y);
+    if (!k) return;
+    var b = hitBoxes[k];
+    dragText = { key: k, offx: p.x - (b.x + b.w / 2), offy: p.y - (b.y + b.h / 2) };
+    hoverKey = k; canvas.style.cursor = "grabbing";
+    e.preventDefault(); try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
+  }
+  function onCanvasMove(e) {
+    if (playing) return;
+    var p = canvasPt(e);
+    if (dragText) {
+      var W = canvas.width, H = canvas.height, b = hitBoxes[dragText.key];
+      var cx = clampN(p.x - dragText.offx, b.w / 2, W - b.w / 2);
+      var cy = clampN(p.y - dragText.offy, b.h / 2, H - b.h / 2);
+      if (!state.textPos) state.textPos = {};
+      state.textPos[dragText.key] = { x: cx / W, y: cy / H };
+      markCustom(dragText.key);
+      redrawPreview(); e.preventDefault();
+    } else {
+      var k = hitText(p.x, p.y);
+      if (k !== hoverKey) { hoverKey = k; canvas.style.cursor = k ? "grab" : ""; redrawPreview(); }
+    }
+  }
+  function onCanvasUp(e) {
+    if (dragText) { dragText = null; canvas.style.cursor = hoverKey ? "grab" : ""; scheduleAutosave(); try { canvas.releasePointerCapture(e.pointerId); } catch (_) {} }
+  }
+  function onCanvasLeave() { if (!dragText && hoverKey) { hoverKey = null; canvas.style.cursor = ""; redrawPreview(); } }
+  function resetTextPos() {
+    state.textPos = {};
+    ["f_capPos", "f_hookPos", "f_ltPos"].forEach(function (id) { var el = $(id); if (el && el.value === "custom") el.value = (id === "f_ltPos" ? state.ltPos : id === "f_hookPos" ? state.hookPos : state.capPos); });
+    // if the stored preset was itself "custom", fall back to a sensible default
+    if ($("f_capPos").value === "custom") $("f_capPos").value = state.capPos = "bottom";
+    if ($("f_hookPos").value === "custom") $("f_hookPos").value = state.hookPos = "center";
+    if ($("f_ltPos").value === "custom") $("f_ltPos").value = state.ltPos = "bottom";
+    rebuild(); drawAt(previewT()); scheduleAutosave();
+    setStatus("Text positions reset.", "ok");
   }
 
   function drawPlaceholder(W, H) {
@@ -4460,7 +4584,7 @@ var qrcode = function() {
   function setMusicBlob(blob, name) { var ac = ensureAudio(); if (!ac) return Promise.resolve(); return blob.arrayBuffer().then(function (b) { return ac.decodeAudioData(b); }).then(function (audio) { state.music = { buffer: audio, name: name || "music", blob: blob }; try { state.music.beat = analyzeBeats(audio); } catch (e) { state.music.beat = null; } $("musicLabel").textContent = "Music added ✓ — " + (name || ""); updateBeatUI(); }).catch(function () {}); }
 
   // ------------------------------------------------ read/apply settings
-  function settingsObj() { return { format: state.format, theme: state.theme, accent: state.accent, clip: state.clip, trans: state.trans, intro: state.intro, outro: state.outro, musicVol: state.musicVol, bannerMode: state.bannerMode, syncBeats: state.syncBeats, hookText: state.hookText, hookStyle: state.hookStyle, hookPos: state.hookPos, endHookText: state.endHookText, capStyle: state.capStyle, capPos: state.capPos, ltPos: state.ltPos, voScript: state.voScript, voVolume: state.voVolume, duck: state.duck, ttsRate: state.ttsRate, brandProfile: state.brandProfile, brandCardPlace: state.brandCard.placement, brandCardVariant: state.brandCard.variant, goldframePlace: state.goldframe.placement, goldframeVariant: state.goldframe.variant, sealWatermark: state.sealWatermark, sealPos: state.sealPos, listingUrl: state.listingUrl, qrOn: state.qrOn }; }
+  function settingsObj() { return { format: state.format, theme: state.theme, accent: state.accent, clip: state.clip, trans: state.trans, intro: state.intro, outro: state.outro, musicVol: state.musicVol, bannerMode: state.bannerMode, syncBeats: state.syncBeats, hookText: state.hookText, hookStyle: state.hookStyle, hookPos: state.hookPos, endHookText: state.endHookText, capStyle: state.capStyle, capPos: state.capPos, ltPos: state.ltPos, textPos: state.textPos, voScript: state.voScript, voVolume: state.voVolume, duck: state.duck, ttsRate: state.ttsRate, brandProfile: state.brandProfile, brandCardPlace: state.brandCard.placement, brandCardVariant: state.brandCard.variant, goldframePlace: state.goldframe.placement, goldframeVariant: state.goldframe.variant, sealWatermark: state.sealWatermark, sealPos: state.sealPos, listingUrl: state.listingUrl, qrOn: state.qrOn }; }
   function setV(id, v) { if (v != null) $(id).value = v; }
   function applySettings(d) {
     if (!d) return;
@@ -4481,6 +4605,10 @@ var qrcode = function() {
     if (d.capStyle) { state.capStyle = d.capStyle; $("f_capStyle").value = d.capStyle; }
     if (d.capPos) { state.capPos = d.capPos; $("f_capPos").value = d.capPos; }
     if (d.ltPos) { state.ltPos = d.ltPos; $("f_ltPos").value = d.ltPos; }
+    state.textPos = (d.textPos && typeof d.textPos === "object") ? d.textPos : {};
+    if (state.textPos.caption) $("f_capPos").value = "custom";
+    if (state.textPos.hook) $("f_hookPos").value = "custom";
+    if (state.textPos.nameplate) $("f_ltPos").value = "custom";
     if (d.voScript != null) { state.voScript = d.voScript; $("vo_script").value = d.voScript; }
     if (d.voVolume != null) { state.voVolume = d.voVolume; $("vo_vol").value = Math.round(d.voVolume * 100); }
     if (d.duck != null) { state.duck = d.duck; $("vo_duck").checked = d.duck; }
@@ -4644,6 +4772,7 @@ var qrcode = function() {
     $("projTitle").value = "";
     state.listingUrl = ""; state.qrOn = false;
     state.goldframe = { placement: "off", variant: state.goldframe ? state.goldframe.variant : "charcoal" }; updateGoldframeUI();
+    state.textPos = {}; if ($("f_capPos")) $("f_capPos").value = state.capPos; if ($("f_hookPos")) $("f_hookPos").value = state.hookPos; if ($("f_ltPos")) $("f_ltPos").value = state.ltPos;
     if ($("shareUrl")) $("shareUrl").value = ""; if ($("qrOnOutro")) $("qrOnOutro").checked = false; renderQR();
     lastExport = null; enableShare();
     applyBrandKit();               // agent + logo/banner from the kit
@@ -4936,11 +5065,17 @@ var qrcode = function() {
     $("f_hook").value = state.hookText; $("f_hookStyle").value = state.hookStyle; $("f_hookPos").value = state.hookPos; $("f_endhook").value = state.endHookText; $("f_capStyle").value = state.capStyle; $("f_capPos").value = state.capPos; $("f_ltPos").value = state.ltPos;
     $("f_hook").addEventListener("input", function () { state.hookText = $("f_hook").value; rebuild(); scheduleAutosave(); });
     $("f_hookStyle").onchange = function () { state.hookStyle = $("f_hookStyle").value; rebuild(); scheduleAutosave(); };
-    $("f_hookPos").onchange = function () { state.hookPos = $("f_hookPos").value; rebuild(); scheduleAutosave(); };
+    $("f_hookPos").onchange = function () { var v = $("f_hookPos").value; if (v !== "custom") { state.hookPos = v; clearCustom("hook"); } rebuild(); drawAt(previewT()); scheduleAutosave(); };
     $("f_endhook").addEventListener("input", function () { state.endHookText = $("f_endhook").value; rebuild(); scheduleAutosave(); });
     $("f_capStyle").onchange = function () { state.capStyle = $("f_capStyle").value; rebuild(); scheduleAutosave(); };
-    $("f_capPos").onchange = function () { state.capPos = $("f_capPos").value; rebuild(); drawAt(posterTime()); scheduleAutosave(); };
-    $("f_ltPos").onchange = function () { state.ltPos = $("f_ltPos").value; rebuild(); drawAt(posterTime()); scheduleAutosave(); };
+    $("f_capPos").onchange = function () { var v = $("f_capPos").value; if (v !== "custom") { state.capPos = v; clearCustom("caption"); } rebuild(); drawAt(previewT()); scheduleAutosave(); };
+    $("f_ltPos").onchange = function () { var v = $("f_ltPos").value; if (v !== "custom") { state.ltPos = v; clearCustom("nameplate"); } rebuild(); drawAt(previewT()); scheduleAutosave(); };
+    $("resetTextPos").onclick = resetTextPos;
+    // free-drag text blocks on the preview canvas
+    canvas.addEventListener("pointerdown", onCanvasDown);
+    canvas.addEventListener("pointermove", onCanvasMove);
+    canvas.addEventListener("pointerup", onCanvasUp);
+    canvas.addEventListener("pointerleave", onCanvasLeave);
     updateHookChips();
 
     // voiceover
