@@ -512,6 +512,21 @@
             </select>
           </div>
         </label>
+        <label class="field" style="margin-bottom:14px">Goldframe animated sting
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:4px">
+            <div class="seg" id="gfSeg" role="group" aria-label="Goldframe sting placement">
+              <button type="button" data-place="off" aria-pressed="true">Off</button>
+              <button type="button" data-place="intro">Intro</button>
+              <button type="button" data-place="outro">Outro</button>
+              <button type="button" data-place="both">Both</button>
+            </div>
+            <select id="gfVariant" style="max-width:140px">
+              <option value="charcoal">Charcoal</option>
+              <option value="cream">Cream</option>
+            </select>
+          </div>
+          <span class="hint">The Goldframe logo animates in — brackets, play button, then the wordmark. Great as an opening or closing sting.</span>
+        </label>
         <label class="toggle" style="margin-bottom:8px"><input type="checkbox" id="f_seal"> LP seal watermark on every clip</label>
         <label class="field" id="sealPosWrap">Watermark corner
           <select id="f_sealPos">
@@ -3096,6 +3111,7 @@ var qrcode = function() {
     ttsRate: 1.0,
     brandProfile: "james", // which saved profile brands this video
     brandCard: { placement: "outro", variant: "auto" }, // Legacy Properties animated brand card
+    goldframe: { placement: "off", variant: "charcoal" }, // Goldframe animated logo sting
     sealWatermark: true, // persistent LP seal on every clip
     sealPos: "tr",       // tl | tr | bl | br
     listingUrl: "",      // link the QR code points to
@@ -3266,6 +3282,8 @@ var qrcode = function() {
     var firstImg = state.media.find(function (m) { return m.kind === "image" && m.ready; });
     var lastImg = null; for (var k = state.media.length - 1; k >= 0; k--) { if (state.media[k].kind === "image" && state.media[k].ready) { lastImg = state.media[k]; break; } }
     var bc = state.brandCard || { placement: "off", variant: "auto" };
+    var gf = state.goldframe || { placement: "off", variant: "charcoal" };
+    if (gf.placement === "intro" || gf.placement === "both") segs.push({ type: "goldframe", dur: 2.8, variant: gf.variant });
     if (bc.placement === "intro" || bc.placement === "both") segs.push({ type: "brandcard", dur: 2.8, variant: bc.variant });
     if (state.intro) segs.push({ type: "intro", dur: 3.0, bg: firstImg });
     var ii = 0;
@@ -3285,6 +3303,7 @@ var qrcode = function() {
     });
     if (state.outro) segs.push({ type: "outro", dur: 3.5, bg: lastImg });
     if (bc.placement === "outro" || bc.placement === "both") segs.push({ type: "brandcard", dur: 2.8, variant: bc.variant });
+    if (gf.placement === "outro" || gf.placement === "both") segs.push({ type: "goldframe", dur: 2.8, variant: gf.variant });
 
     // compute start times with crossfade overlap
     var t = 0;
@@ -3547,8 +3566,21 @@ var qrcode = function() {
 
   // Timing window for the animated lower-third: appears just after the intro,
   // holds, then slides away. Returns null when the reel is too short to fit it.
+  // Start time of the first real photo/clip and end of the last one — so hooks
+  // and the lower-third sit over content, never over a leading/trailing
+  // Goldframe sting, brand card, or title card.
+  function firstMediaStart() {
+    var segs = timeline.segs || [];
+    for (var i = 0; i < segs.length; i++) { var ty = segs[i].type; if (ty === "image" || ty === "video") return segs[i].start; }
+    return 0.25;
+  }
+  function lastMediaEnd() {
+    var segs = timeline.segs || [];
+    for (var i = segs.length - 1; i >= 0; i--) { var ty = segs[i].type; if (ty === "image" || ty === "video") return segs[i].start + segs[i].dur; }
+    return timeline.total || 0;
+  }
   function ltWindow() {
-    var start = (state.intro ? 3.0 : 0.35) + 0.5;
+    var start = firstMediaStart() + 0.5;
     var hold = Math.min(4.2, timeline.total - start - 0.6);
     if (hold < 1.4) return null;
     return { start: start, hold: hold, ein: 0.55, eout: 0.5 };
@@ -3678,14 +3710,13 @@ var qrcode = function() {
     var th = theme(), s = canvas.width / 720, cx = canvas.width / 2, H = canvas.height;
     var posY = state.hookPos === "top" ? H * 0.17 : state.hookPos === "bottom" ? H * 0.8 : H * 0.5;
     if (state.hookText) {
-      var start = (state.intro ? Math.max(0.1, 3.0 - state.trans) : 0.25) + 0.12;
+      var start = firstMediaStart() + 0.12;
       var win = { start: start, hold: Math.min(2.6, Math.max(1.2, timeline.total * 0.5)), ein: 0.5, eout: 0.45 };
       var a = hookAlpha(t, win);
       if (a.alpha > 0) drawHookLine(state.hookText, state.hookStyle, cx, posY, 64 * s, a.appear, a.alpha, th, s);
     }
     if (state.endHookText) {
-      var outroStart = timeline.total - (state.outro ? 3.5 : 0);
-      var cend = outroStart - 0.2, cstart = cend - 2.4;
+      var cend = lastMediaEnd() - 0.2, cstart = cend - 2.4;
       if (cstart > 0.5) {
         var a2 = hookAlpha(t, { start: cstart, hold: 2.2, ein: 0.5, eout: 0.45 });
         if (a2.alpha > 0) drawHookLine(state.endHookText, state.hookStyle, cx, H * 0.8, 54 * s, a2.appear, a2.alpha, th, s);
@@ -3781,8 +3812,98 @@ var qrcode = function() {
     ctx.restore();
   }
 
+  // The Goldframe animated logo sting: brackets snap in from the corners, the
+  // play button pops, then the GOLD/FRAME wordmark rises letter by letter and
+  // the tagline fades in. Reproduces the supplied animated lockup on canvas.
+  function drawGoldframe(seg, local, W, H) {
+    var s = W / 720;
+    var cream = seg.variant === "cream";
+    var col = cream
+      ? { bg: "#EEEAE1", bracket: "#C1912F", play: "#1D1F20", gold: "#A9781F", ink: "#1D1F20", tag: "#6A6456" }
+      : { bg: "#1D1F20", bracket: "#E0B23C", play: "#F2F2F3", gold: "#E0B23C", ink: "#F2F2F3", tag: "#A7A79F" };
+    ctx.fillStyle = col.bg; ctx.fillRect(0, 0, W, H);
+    var cl = function (p) { return Math.max(0, Math.min(1, p)); };
+    var CONDENSED = '"Arial Narrow","Barlow Condensed","Roboto Condensed",system-ui,sans-serif';
+
+    var D = 150 * s, wordSize = 66 * s, tagSize = 15 * s, gap1 = 40 * s, gap2 = 26 * s;
+    var blockH = D + gap1 + wordSize + gap2 + tagSize;
+    var top = (H - blockH) / 2, cx = W / 2, markX = cx - D / 2, markY = top;
+    var unit = function (u) { return u / 100 * D; };
+
+    // subtle "lock" pulse of the whole mark around 0.62s
+    var pulse = 1 + 0.04 * Math.max(0, 1 - Math.abs((local - 0.62) / 0.18));
+    ctx.save();
+    ctx.translate(cx, markY + D / 2); ctx.scale(pulse, pulse); ctx.translate(-cx, -(markY + D / 2));
+
+    // four brackets, each sliding in from its own corner
+    var brk = [
+      { d: [[8, 34], [8, 8], [34, 8]], off: [-14, -14], t: 0.05 },
+      { d: [[66, 8], [92, 8], [92, 34]], off: [14, -14], t: 0.17 },
+      { d: [[92, 66], [92, 92], [66, 92]], off: [14, 14], t: 0.29 },
+      { d: [[34, 92], [8, 92], [8, 66]], off: [-14, 14], t: 0.41 }
+    ];
+    ctx.strokeStyle = col.bracket; ctx.lineWidth = unit(8); ctx.lineJoin = "miter"; ctx.lineCap = "butt";
+    brk.forEach(function (b) {
+      var p = smooth(cl((local - b.t) / 0.5));
+      if (p <= 0) return;
+      var ox = unit(b.off[0]) * (1 - p), oy = unit(b.off[1]) * (1 - p);
+      ctx.globalAlpha = p; ctx.beginPath();
+      b.d.forEach(function (pt, i) {
+        var x = markX + unit(pt[0]) + ox, y = markY + unit(pt[1]) + oy;
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+    });
+
+    // play triangle pops with a little overshoot
+    var pp = cl((local - 0.78) / 0.48);
+    if (pp > 0) {
+      var psc = 0.35 + 0.65 * easeOutBack(pp);
+      var pcx = markX + unit(52), pcy = markY + unit(50);
+      ctx.globalAlpha = Math.min(1, pp * 1.6);
+      ctx.save(); ctx.translate(pcx, pcy); ctx.scale(psc, psc); ctx.translate(-pcx, -pcy);
+      ctx.fillStyle = col.play; ctx.beginPath();
+      ctx.moveTo(markX + unit(41), markY + unit(32));
+      ctx.lineTo(markX + unit(73), markY + unit(50));
+      ctx.lineTo(markX + unit(41), markY + unit(68));
+      ctx.closePath(); ctx.fill(); ctx.restore();
+    }
+    ctx.restore(); // end pulse
+    ctx.globalAlpha = 1;
+
+    // wordmark — GOLD (heavy gold) + FRAME (light ink), each letter rising in
+    var letters = "GOLDFRAME".split("").map(function (c, i) {
+      return { c: c, col: i < 4 ? col.gold : col.ink, w: i < 4 ? "700" : "400" };
+    });
+    ctx.textBaseline = "alphabetic"; ctx.textAlign = "left";
+    var lsp = 1 * s, totalW = 0;
+    letters.forEach(function (L) { ctx.font = L.w + " " + wordSize + "px " + CONDENSED; totalW += ctx.measureText(L.c).width + lsp; });
+    totalW -= lsp;
+    var wx = cx - totalW / 2, wBase = top + D + gap1 + wordSize * 0.82;
+    letters.forEach(function (L, i) {
+      ctx.font = L.w + " " + wordSize + "px " + CONDENSED;
+      var cw = ctx.measureText(L.c).width;
+      var p = smooth(cl((local - (1.05 + i * 0.06)) / 0.5));
+      if (p > 0) { ctx.globalAlpha = p; ctx.fillStyle = L.col; ctx.fillText(L.c, wx, wBase + (1 - p) * 12 * s); }
+      wx += cw + lsp;
+    });
+    ctx.globalAlpha = 1;
+
+    // tagline
+    var tp = smooth(cl((local - 1.75) / 0.5));
+    if (tp > 0) {
+      ctx.globalAlpha = tp; ctx.fillStyle = col.tag;
+      ctx.font = "600 " + tagSize + "px " + CONDENSED; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      var tls = 0.26 * tagSize; if ("letterSpacing" in ctx) ctx.letterSpacing = tls + "px";
+      ctx.fillText("ASSETS IN, ADS OUT", cx - tls / 2 + (1 - tp) * (-8 * s), top + D + gap1 + wordSize + gap2 + tagSize / 2);
+      if ("letterSpacing" in ctx) ctx.letterSpacing = "0px";
+    }
+    ctx.globalAlpha = 1; ctx.textAlign = "left";
+  }
+
   function drawSeg(seg, local, W, H) {
     if (seg.type === "brandcard") drawBrandCard(seg, local, W, H);
+    else if (seg.type === "goldframe") drawGoldframe(seg, local, W, H);
     else if (seg.type === "intro" || seg.type === "outro") drawCard(seg, local, W, H, seg.type === "intro" ? "intro" : "outro");
     else if (seg.type === "video") drawVideo(seg, local, W, H);
     else drawPhoto(seg, local, W, H);
@@ -4314,7 +4435,7 @@ var qrcode = function() {
   function setMusicBlob(blob, name) { var ac = ensureAudio(); if (!ac) return Promise.resolve(); return blob.arrayBuffer().then(function (b) { return ac.decodeAudioData(b); }).then(function (audio) { state.music = { buffer: audio, name: name || "music", blob: blob }; try { state.music.beat = analyzeBeats(audio); } catch (e) { state.music.beat = null; } $("musicLabel").textContent = "Music added ✓ — " + (name || ""); updateBeatUI(); }).catch(function () {}); }
 
   // ------------------------------------------------ read/apply settings
-  function settingsObj() { return { format: state.format, theme: state.theme, accent: state.accent, clip: state.clip, trans: state.trans, intro: state.intro, outro: state.outro, musicVol: state.musicVol, bannerMode: state.bannerMode, syncBeats: state.syncBeats, hookText: state.hookText, hookStyle: state.hookStyle, hookPos: state.hookPos, endHookText: state.endHookText, capStyle: state.capStyle, voScript: state.voScript, voVolume: state.voVolume, duck: state.duck, ttsRate: state.ttsRate, brandProfile: state.brandProfile, brandCardPlace: state.brandCard.placement, brandCardVariant: state.brandCard.variant, sealWatermark: state.sealWatermark, sealPos: state.sealPos, listingUrl: state.listingUrl, qrOn: state.qrOn }; }
+  function settingsObj() { return { format: state.format, theme: state.theme, accent: state.accent, clip: state.clip, trans: state.trans, intro: state.intro, outro: state.outro, musicVol: state.musicVol, bannerMode: state.bannerMode, syncBeats: state.syncBeats, hookText: state.hookText, hookStyle: state.hookStyle, hookPos: state.hookPos, endHookText: state.endHookText, capStyle: state.capStyle, voScript: state.voScript, voVolume: state.voVolume, duck: state.duck, ttsRate: state.ttsRate, brandProfile: state.brandProfile, brandCardPlace: state.brandCard.placement, brandCardVariant: state.brandCard.variant, goldframePlace: state.goldframe.placement, goldframeVariant: state.goldframe.variant, sealWatermark: state.sealWatermark, sealPos: state.sealPos, listingUrl: state.listingUrl, qrOn: state.qrOn }; }
   function setV(id, v) { if (v != null) $(id).value = v; }
   function applySettings(d) {
     if (!d) return;
@@ -4340,11 +4461,13 @@ var qrcode = function() {
     if (d.brandProfile) { state.brandProfile = d.brandProfile; applyProfile(d.brandProfile); }
     if (d.brandCardPlace) { state.brandCard.placement = d.brandCardPlace; }
     if (d.brandCardVariant) { state.brandCard.variant = d.brandCardVariant; }
+    if (d.goldframePlace) { state.goldframe.placement = d.goldframePlace; }
+    if (d.goldframeVariant) { state.goldframe.variant = d.goldframeVariant; }
     if (d.sealWatermark != null) { state.sealWatermark = d.sealWatermark; }
     if (d.sealPos) { state.sealPos = d.sealPos; }
     if (d.listingUrl != null) { state.listingUrl = d.listingUrl; if ($("shareUrl")) $("shareUrl").value = d.listingUrl; }
     if (d.qrOn != null) { state.qrOn = d.qrOn; if ($("qrOnOutro")) $("qrOnOutro").checked = d.qrOn; }
-    updateBrandCardUI(); updateSealUI(); renderQR();
+    updateBrandCardUI(); updateGoldframeUI(); updateSealUI(); renderQR();
     updateHookChips();
   }
   function applyListing(L) { L = L || {}; setV("f_tagline", L.tagline); setV("f_address", L.address); setV("f_city", L.city); setV("f_price", L.price); setV("f_beds", L.beds); setV("f_baths", L.baths); setV("f_sqft", L.sqft); }
@@ -4412,6 +4535,7 @@ var qrcode = function() {
   }
   function updateSealUI() { var c = $("f_seal"); if (c) c.checked = state.sealWatermark; var sp = $("f_sealPos"); if (sp) sp.value = state.sealPos; var w = $("sealPosWrap"); if (w) w.style.display = state.sealWatermark ? "flex" : "none"; }
   function updateBrandCardUI() { var seg = $("brandCardSeg"); if (seg) Array.prototype.forEach.call(seg.children, function (b) { b.setAttribute("aria-pressed", b.dataset.place === state.brandCard.placement ? "true" : "false"); }); var sel = $("brandCardVariant"); if (sel) sel.value = state.brandCard.variant; }
+  function updateGoldframeUI() { var seg = $("gfSeg"); if (seg) Array.prototype.forEach.call(seg.children, function (b) { b.setAttribute("aria-pressed", b.dataset.place === state.goldframe.placement ? "true" : "false"); }); var sel = $("gfVariant"); if (sel) sel.value = state.goldframe.variant; }
   function updateBrandSeg() { var seg = $("brandSeg"); if (!seg) return; Array.prototype.forEach.call(seg.children, function (b) { b.setAttribute("aria-pressed", b.dataset.profile === state.brandProfile ? "true" : "false"); }); }
   function selectBrandProfile(key) { applyProfile(key); rebuild(); drawAt(posterTime()); scheduleAutosave(); setStatus("Branding: " + profile(key).name, "ok"); }
 
@@ -4492,6 +4616,7 @@ var qrcode = function() {
     ["f_tagline","f_address","f_city","f_price","f_beds","f_baths","f_sqft"].forEach(function (id) { $(id).value = ""; });
     $("projTitle").value = "";
     state.listingUrl = ""; state.qrOn = false;
+    state.goldframe = { placement: "off", variant: state.goldframe ? state.goldframe.variant : "charcoal" }; updateGoldframeUI();
     if ($("shareUrl")) $("shareUrl").value = ""; if ($("qrOnOutro")) $("qrOnOutro").checked = false; renderQR();
     lastExport = null; enableShare();
     applyBrandKit();               // agent + logo/banner from the kit
@@ -4775,10 +4900,12 @@ var qrcode = function() {
     Array.prototype.forEach.call($("brandSeg").children, function (btn) { btn.onclick = function () { selectBrandProfile(btn.dataset.profile); }; });
     Array.prototype.forEach.call($("bkProfileSeg").children, function (btn) { btn.onclick = function () { switchEditProfile(btn.dataset.profile); }; });
     Array.prototype.forEach.call($("brandCardSeg").children, function (btn) { btn.onclick = function () { state.brandCard.placement = btn.dataset.place; updateBrandCardUI(); rebuild(); drawAt(posterTime()); scheduleAutosave(); }; });
+    Array.prototype.forEach.call($("gfSeg").children, function (btn) { btn.onclick = function () { state.goldframe.placement = btn.dataset.place; updateGoldframeUI(); rebuild(); drawAt(posterTime()); scheduleAutosave(); }; });
+    $("gfVariant").onchange = function () { state.goldframe.variant = $("gfVariant").value; updateGoldframeUI(); rebuild(); drawAt(posterTime()); scheduleAutosave(); };
     $("brandCardVariant").onchange = function () { state.brandCard.variant = $("brandCardVariant").value; rebuild(); drawAt(posterTime()); scheduleAutosave(); };
     $("f_seal").onchange = function () { state.sealWatermark = $("f_seal").checked; updateSealUI(); rebuild(); drawAt(posterTime()); scheduleAutosave(); };
     $("f_sealPos").onchange = function () { state.sealPos = $("f_sealPos").value; rebuild(); drawAt(posterTime()); scheduleAutosave(); };
-    updateBrandCardUI(); updateSealUI();
+    updateBrandCardUI(); updateGoldframeUI(); updateSealUI();
     $("f_hook").value = state.hookText; $("f_hookStyle").value = state.hookStyle; $("f_hookPos").value = state.hookPos; $("f_endhook").value = state.endHookText; $("f_capStyle").value = state.capStyle;
     $("f_hook").addEventListener("input", function () { state.hookText = $("f_hook").value; rebuild(); scheduleAutosave(); });
     $("f_hookStyle").onchange = function () { state.hookStyle = $("f_hookStyle").value; rebuild(); scheduleAutosave(); };
