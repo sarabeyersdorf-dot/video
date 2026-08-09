@@ -321,6 +321,33 @@
   .gf-ink{ color:var(--ink) !important; -webkit-text-fill-color:var(--ink) !important; font-weight:300; }
   .gf-tag{ font-family:var(--display); text-transform:uppercase; letter-spacing:.26em; font-size:9.5px; color:var(--muted); margin-top:4px; }
 
+  /* animated Goldframe lockup at the top of the page — plays on load, click to replay */
+  .lockup{ cursor:pointer; }
+  @keyframes gfb-tl{ from{opacity:0;transform:translate(-12px,-12px)} to{opacity:1;transform:translate(0,0)} }
+  @keyframes gfb-tr{ from{opacity:0;transform:translate(12px,-12px)}  to{opacity:1;transform:translate(0,0)} }
+  @keyframes gfb-br{ from{opacity:0;transform:translate(12px,12px)}   to{opacity:1;transform:translate(0,0)} }
+  @keyframes gfb-bl{ from{opacity:0;transform:translate(-12px,12px)}  to{opacity:1;transform:translate(0,0)} }
+  @keyframes gfb-play{ from{opacity:0;transform:scale(.35)} 60%{opacity:1;transform:scale(1.1)} to{opacity:1;transform:scale(1)} }
+  @keyframes gfb-lock{ 0%,100%{transform:scale(1)} 45%{transform:scale(1.06)} }
+  @keyframes gfb-rise{ from{opacity:0;transform:translateY(34%)} to{opacity:1;transform:none} }
+  .gf-mark{ transform-origin:center; animation:gfb-lock .5s cubic-bezier(.2,.8,.2,1) .62s both; }
+  .gf-mark .gfb{ animation:gfb-tl .5s cubic-bezier(.2,.9,.2,1) both; }
+  .gf-mark .tl{ animation-name:gfb-tl; animation-delay:.05s; }
+  .gf-mark .tr{ animation-name:gfb-tr; animation-delay:.17s; }
+  .gf-mark .br{ animation-name:gfb-br; animation-delay:.29s; }
+  .gf-mark .bl{ animation-name:gfb-bl; animation-delay:.41s; }
+  .gfb-play{ transform-box:fill-box; transform-origin:center; animation:gfb-play .48s cubic-bezier(.2,.9,.2,1) .78s both; }
+  .gfb-word span{ display:inline-block; animation:gfb-rise .5s cubic-bezier(.2,.9,.2,1) both; }
+  .gfb-word span:nth-child(1){ animation-delay:.90s } .gfb-word span:nth-child(2){ animation-delay:.96s }
+  .gfb-word span:nth-child(3){ animation-delay:1.02s } .gfb-word span:nth-child(4){ animation-delay:1.08s }
+  .gfb-word span:nth-child(5){ animation-delay:1.16s } .gfb-word span:nth-child(6){ animation-delay:1.22s }
+  .gfb-word span:nth-child(7){ animation-delay:1.28s } .gfb-word span:nth-child(8){ animation-delay:1.34s }
+  .gfb-word span:nth-child(9){ animation-delay:1.40s }
+  .gfb-tag{ animation:gfb-rise .5s ease 1.5s both; }
+  @media (prefers-reduced-motion: reduce){
+    .gf-mark, .gf-mark .gfb, .gfb-play, .gfb-word span, .gfb-tag{ animation:none !important; opacity:1 !important; transform:none !important; }
+  }
+
   /* primary action: solid gold, flat and confident (no gradient/glow) */
   button.btn.primary{ background:var(--gold); border-color:var(--gold); color:#1D1F20; box-shadow:none; font-weight:600; letter-spacing:.01em; }
   button.btn.primary:hover{ filter:brightness(1.04); }
@@ -342,17 +369,17 @@
 <div class="app">
   <header class="top">
     <div class="brand">
-      <div class="lockup" aria-label="Goldframe">
-        <svg class="gf-mark" viewBox="0 0 100 100" width="34" height="34" fill="none" aria-hidden="true">
-          <path d="M8 34 L8 8 L34 8" stroke="#E0B23C" stroke-width="8"/>
-          <path d="M66 8 L92 8 L92 34" stroke="#E0B23C" stroke-width="8"/>
-          <path d="M92 66 L92 92 L66 92" stroke="#E0B23C" stroke-width="8"/>
-          <path d="M34 92 L8 92 L8 66" stroke="#E0B23C" stroke-width="8"/>
-          <polygon points="41,32 73,50 41,68" class="gf-play"/>
+      <div class="lockup" id="gfLockup" aria-label="Goldframe" title="Click to replay">
+        <svg class="gf-mark" viewBox="0 0 100 100" width="38" height="38" fill="none" aria-hidden="true">
+          <path class="gfb tl" d="M8 34 L8 8 L34 8" stroke="#E0B23C" stroke-width="8"/>
+          <path class="gfb tr" d="M66 8 L92 8 L92 34" stroke="#E0B23C" stroke-width="8"/>
+          <path class="gfb br" d="M92 66 L92 92 L66 92" stroke="#E0B23C" stroke-width="8"/>
+          <path class="gfb bl" d="M34 92 L8 92 L8 66" stroke="#E0B23C" stroke-width="8"/>
+          <polygon class="gf-play gfb-play" points="41,32 73,50 41,68"/>
         </svg>
         <div class="gf-text">
-          <h1><span class="gf-gold">GOLD</span><span class="gf-ink">FRAME</span></h1>
-          <div class="gf-tag">Assets in, ads out</div>
+          <h1 class="gfb-word"><span class="gf-gold">G</span><span class="gf-gold">O</span><span class="gf-gold">L</span><span class="gf-gold">D</span><span class="gf-ink">F</span><span class="gf-ink">R</span><span class="gf-ink">A</span><span class="gf-ink">M</span><span class="gf-ink">E</span></h1>
+          <div class="gf-tag gfb-tag">Assets in, ads out</div>
         </div>
       </div>
       <div class="proj-id">
@@ -5004,6 +5031,11 @@ var qrcode = function() {
     // header actions
     $("brandBtn").onclick = openBrandModal;
     $("projectsBtn").onclick = openLibrary;
+    // replay the animated Goldframe lockup on click
+    var gfLock = $("gfLockup");
+    if (gfLock && gfLock.getAnimations) gfLock.addEventListener("click", function () {
+      gfLock.getAnimations({ subtree: true }).forEach(function (an) { try { an.cancel(); an.play(); } catch (e) {} });
+    });
     $("newBtn").onclick = function () { newProject(); };
     $("saveDraftBtn").onclick = function () { saveProject("draft"); };
     $("saveFinalBtn").onclick = function () { saveProject("final"); };
