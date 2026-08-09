@@ -485,6 +485,10 @@
         </div>
         <ul class="items" id="mediaList"></ul>
         <div class="empty" id="mediaEmpty">No clips yet.</div>
+        <div class="curate-row" id="curateRow" style="display:none;margin-top:14px;border-top:1px solid var(--line);padding-top:14px">
+          <button class="btn primary" id="curateBtn">&#10024; Auto-curate for me</button>
+          <p class="hint" style="margin-top:8px">Goldframe looks at each photo &amp; clip — brightness, color, detail, sky — and orders them into a story: opens on your strongest establishing shot, keeps the flow varied, ends on a hero frame, and sets the camera motion &amp; transition for you. Reorder anything afterward by dragging.</p>
+        </div>
       </section>
 
       <section class="card">
@@ -3289,6 +3293,8 @@ var qrcode = function() {
   function renderList() {
     var ul = $("mediaList"); ul.innerHTML = "";
     $("mediaEmpty").style.display = state.media.length ? "none" : "block";
+    var readyN = state.media.filter(function (m) { return m.ready; }).length;
+    if ($("curateRow")) $("curateRow").style.display = readyN >= 2 ? "block" : "none";
     state.media.forEach(function (m, idx) {
       var li = document.createElement("li"); li.className = "item";
       // thumb
@@ -3372,6 +3378,8 @@ var qrcode = function() {
         var full = m.natDur || state.clip;
         d = (m.dur == null) ? full : Math.min(m.dur, full);
         d = Math.max(1, d);
+      } else if (m.dur != null) {
+        d = Math.max(1.5, m.dur);          // per-photo pacing (e.g. from Auto-curate)
       }
       if (bi) d = Math.max(bi, Math.round(d / bi) * bi);   // snap cut length to the beat
       var motion = m.kind === "video" ? "still" : (m.motion === "auto" ? autoMotion(ii) : m.motion);
@@ -4478,6 +4486,102 @@ var qrcode = function() {
     })();
   }
 
+  // ---------------------------------------------------------------- auto-curate
+  // On-device analysis (brightness, color, warmth, detail, sky) + real-estate
+  // storytelling heuristics to order the reel and set motion/transitions.
+  function clipFeatures(dat, w, h, natW, natH) {
+    var lum = 0, warm = 0, sat = 0, detail = 0, skyCount = 0, n = w * h, topRows = Math.max(1, Math.floor(h / 3));
+    for (var y = 0; y < h; y++) for (var x = 0; x < w; x++) {
+      var i = (y * w + x) * 4, r = dat[i], g = dat[i + 1], b = dat[i + 2];
+      var mx = Math.max(r, g, b), mn = Math.min(r, g, b), L = r * 0.299 + g * 0.587 + b * 0.114;
+      lum += L; warm += (r - b); sat += mx ? (mx - mn) / mx : 0;
+      if (x > 0) { var j = i - 4; detail += Math.abs(r - dat[j]) + Math.abs(g - dat[j + 1]) + Math.abs(b - dat[j + 2]); }
+      if (y < topRows && b >= r && L > 150) skyCount++;
+    }
+    return { lum: lum / n / 255, warm: (warm / n) / 255, colorful: sat / n, detail: detail / (n * 3) / 255,
+             sky: skyCount / (topRows * w), wide: natW / (natH || 1) };
+  }
+  function analyzeClip(item) {
+    var g = anCanvas(), W = 64, H = 36;
+    if (item.kind === "image") {
+      return new Promise(function (res) {
+        try { g.drawImage(item.el, 0, 0, W, H); var d = g.getImageData(0, 0, W, H).data;
+          res(clipFeatures(d, W, H, item.el.naturalWidth || 1, item.el.naturalHeight || 1));
+        } catch (e) { res(null); }
+      });
+    }
+    var v = item.el, t = Math.min(1.0, (item.natDur || 2) / 2);
+    return seekTo(v, t).then(function () {
+      try { g.drawImage(v, 0, 0, W, H); var d = g.getImageData(0, 0, W, H).data;
+        return clipFeatures(d, W, H, v.videoWidth || 16, v.videoHeight || 9);
+      } catch (e) { return null; }
+    });
+  }
+  function curate() {
+    var items = state.media.filter(function (m) { return m.ready; });
+    if (items.length < 2) { setStatus("Add at least two photos or clips, then Auto-curate.", "err"); return; }
+    var btn = $("curateBtn"); btn.disabled = true;
+    setStatus("Auto-curating — analyzing " + items.length + " clips…");
+    var i = 0;
+    (function step() {
+      if (i < items.length) { analyzeClip(items[i]).then(function (f) { items[i].feat = f || { lum: .5, warm: 0, colorful: .3, detail: .3, sky: 0, wide: 1 }; i++; step(); }); return; }
+      finishCurate(items); btn.disabled = false;
+    })();
+  }
+  function finishCurate(items) {
+    var clamp01 = function (x) { return Math.max(0, Math.min(1, x)); };
+    items.forEach(function (m) {
+      var f = m.feat, vidBoost = m.kind === "video" ? 0.18 : 0;
+      f.establish = 0.45 * f.sky + 0.30 * f.lum + 0.25 * clamp01((f.wide - 1) / 1.4) + vidBoost;
+      f.hero = 0.40 * f.colorful + 0.25 * (f.warm * 0.5 + 0.5) + 0.20 * f.lum + 0.15 * f.sky;
+    });
+    var pool = items.slice();
+    // opener = strongest establishing shot
+    pool.sort(function (a, b) { return b.feat.establish - a.feat.establish; });
+    var opener = pool.shift();
+    // finale = strongest hero frame among the rest (needs 2+ left to reserve one)
+    var finale = null;
+    if (pool.length >= 2) { var byHero = pool.slice().sort(function (a, b) { return b.feat.hero - a.feat.hero; }); finale = byHero[0]; pool = pool.filter(function (m) { return m !== finale; }); }
+    // middle = greedy for variety without harsh brightness jumps
+    var dist = function (a, b) { var A = a.feat, B = b.feat; return Math.abs(A.lum - B.lum) + Math.abs(A.colorful - B.colorful) + 0.5 * Math.abs(A.warm - B.warm) + Math.abs(A.detail - B.detail) + 0.5 * Math.abs(A.sky - B.sky); };
+    var ordered = [opener], prev = opener;
+    while (pool.length) {
+      var best = 0, bestScore = -1e9;
+      for (var k = 0; k < pool.length; k++) {
+        var jump = Math.max(0, Math.abs(pool[k].feat.lum - prev.feat.lum) - 0.4);
+        var sc = dist(prev, pool[k]) - 0.6 * jump;
+        if (sc > bestScore) { bestScore = sc; best = k; }
+      }
+      prev = pool.splice(best, 1)[0]; ordered.push(prev);
+    }
+    if (finale) ordered.push(finale);
+    // assign motion + pacing
+    var panFlip = false, clip = state.clip;
+    ordered.forEach(function (m, k) {
+      m.dur = null;
+      if (m.kind === "video") return;                 // videos play; leave motion "still"
+      var f = m.feat, mo;
+      if (m === opener) mo = f.sky > 0.25 ? "drone-up" : "push-in";
+      else if (m === finale) mo = "pull-out";
+      else if (f.wide > 1.25) { mo = panFlip ? "pan-left" : "pan-right"; panFlip = !panFlip; }
+      else if (f.wide < 0.82) mo = "pan-up";
+      else if (f.detail > 0.30) mo = "push-in";
+      else mo = (k % 2) ? "ken-burns" : "push-in";
+      m.motion = mo;
+      if (m === opener || m === finale) m.dur = Math.round(clip * 1.25 * 10) / 10;   // linger on the bookends
+    });
+    // transition: cuts when beat-syncing, otherwise a gentle crossfade
+    var beatSync = state.syncBeats && state.music && state.music.beat;
+    state.trans = beatSync ? 0 : 0.5;
+    if ($("f_trans")) $("f_trans").value = state.trans;
+    // commit new order (keep any not-ready items at the end)
+    var rest = state.media.filter(function (m) { return ordered.indexOf(m) < 0; });
+    state.media = ordered.concat(rest);
+    renderList(); rebuild(); drawAt(posterTime()); scheduleAutosave();
+    var oName = (opener.name || "opener");
+    setStatus("Auto-curated " + ordered.length + " clips — opened on your strongest establishing shot, ordered for flow, " + (finale ? "ended on a hero frame, " : "") + "set camera motion and a " + (beatSync ? "beat-synced cut" : "0.5s crossfade") + ". Drag to fine-tune.", "ok");
+  }
+
   // ---------------------------------------------------------------- export
   function pickMime() {
     // Prefer real H.264/MP4 (Safari + modern Chrome). Only accept an explicit
@@ -5158,6 +5262,7 @@ var qrcode = function() {
     $("f_sync").checked = state.syncBeats;
     $("f_sync").onchange = function () { state.syncBeats = $("f_sync").checked; rebuild(); scheduleAutosave(); };
     $("montageBtn").onclick = autoMontage;
+    $("curateBtn").onclick = curate;
     Array.prototype.forEach.call($("brandSeg").children, function (btn) { btn.onclick = function () { selectBrandProfile(btn.dataset.profile); }; });
     Array.prototype.forEach.call($("bkProfileSeg").children, function (btn) { btn.onclick = function () { switchEditProfile(btn.dataset.profile); }; });
     Array.prototype.forEach.call($("brandCardSeg").children, function (btn) { btn.onclick = function () { state.brandCard.placement = btn.dataset.place; updateBrandCardUI(); rebuild(); drawAt(posterTime()); scheduleAutosave(); }; });
