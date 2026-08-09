@@ -1,6 +1,11 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>ListingReel Studio</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎬</text></svg>"></head><body>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ListingReel Studio — Legacy Properties</title>
+</head>
+<body>
 <style>
   /* ListingReel Studio — a deliberate dark editing-studio UI. Colors are painted
      explicitly so the page holds on any host background (light or dark viewer). */
@@ -270,6 +275,12 @@
   :root .canvas-wrap{ box-shadow:0 18px 50px -28px rgba(20,25,40,.4); }
   /* deeper, saturated wordmark so it reads on the light workspace */
   :root:not([data-ui="dark"]) .brand h1{ background:linear-gradient(95deg,#9A6E2A 0%,#7C57D8 52%,#2E76D0 100%); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+  .share{ margin-top:20px; background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:16px; box-shadow:var(--shadow,none); }
+  .share-head{ font-family:var(--serif); font-weight:600; font-size:16px; margin:0 0 12px; display:flex; align-items:center; gap:9px; }
+  .share-head::before{ content:""; width:11px; height:11px; border-radius:3.5px; background:#5FC08A; box-shadow:0 0 0 4px rgba(95,192,138,.2); }
+  .share-btns{ display:flex; gap:9px; flex-wrap:wrap; }
+  .share textarea{ margin-top:12px; }
+  .share .btn{ font-size:13.5px; padding:8px 13px; }
 </style>
 
 <div class="app">
@@ -320,6 +331,28 @@
         <label><input type="checkbox" id="sz_wide"> Wide 16:9</label>
       </div>
       <p class="hint" id="exportHint"></p>
+
+      <div class="share" id="shareCard">
+        <div class="share-head">Share &amp; publish</div>
+        <div class="share-btns">
+          <button class="btn" id="shareNative" disabled title="Export a video first">&#9650; Share&hellip;</button>
+          <a class="btn ghost" id="ytUpload" href="https://www.youtube.com/upload" target="_blank" rel="noopener">&#9654; YouTube</a>
+          <a class="btn ghost" id="ttUpload" href="https://www.tiktok.com/tiktokstudio/upload" target="_blank" rel="noopener">TikTok</a>
+          <button class="btn ghost" id="copyCap">&#10697; Copy caption</button>
+        </div>
+        <textarea id="shareCaption" rows="4" placeholder="Your post caption&hellip;"></textarea>
+        <label class="field" style="margin-top:10px">Listing link <span style="color:var(--faint)">(optional — for Facebook / LinkedIn / X)</span>
+          <input type="text" id="shareUrl" placeholder="https://your-listing-or-website.com">
+        </label>
+        <div class="share-btns" style="margin-top:10px">
+          <button class="btn ghost" id="shX">Post to X</button>
+          <button class="btn ghost" id="shFb">Facebook</button>
+          <button class="btn ghost" id="shLi">LinkedIn</button>
+          <button class="btn ghost" id="shWa">WhatsApp</button>
+          <button class="btn ghost" id="capRegen" title="Rebuild the caption from your listing">&#8635; From listing</button>
+        </div>
+        <p class="hint">On a phone, <b>Share&hellip;</b> sends the actual video file straight to Instagram, TikTok &amp; more. YouTube / TikTok open their upload pages — drop your downloaded file. Facebook / LinkedIn / X post your caption and listing link.</p>
+      </div>
     </div>
 
     <!-- CONTROLS -->
@@ -1658,6 +1691,7 @@
         var fname = "listing-reel-" + (addr || "video") + "-" + state.format + "." + ext;
         var dl = $("dlLink"); dl.href = url; dl.download = fname; dl.style.display = "inline-flex";
         dl.textContent = "⬇ Save " + fmtLabel(state.format) + " (" + (blob.size / 1e6).toFixed(1) + " MB)";
+        lastExport = { blob: blob, filename: fname }; enableShare(); fillCaption(false);
         saveFile(fname, blob).then(function () { resolve(true); });
         exporting = false;
       };
@@ -1703,6 +1737,54 @@
         recordAndSave(prefix).then(function () { i++; nextFmt(); });
       }, 180);
     })();
+  }
+
+  // ------------------------------------------------ share & publish
+  var lastExport = null;
+  function enableShare() { var b = $("shareNative"); if (!b) return; b.disabled = !lastExport; b.title = lastExport ? "Share the exported video" : "Export a video first"; }
+  function captionText() {
+    var L = listing(), A = agent(), lines = [];
+    lines.push("✨ " + (L.tagline ? L.tagline + " — " : "Just Listed — ") + (L.address || "New Listing") + (L.city ? ", " + String(L.city).split(",")[0] : ""));
+    if (L.price) lines.push("Offered at " + L.price);
+    var specs = [];
+    if (L.beds != null) specs.push(L.beds + " BD");
+    if (L.baths != null) specs.push(L.baths + " BA");
+    if (L.sqft != null) specs.push(Number(L.sqft).toLocaleString("en-US") + " sqft");
+    if (specs.length) lines.push(specs.join("  ·  "));
+    if (A.name) lines.push("");
+    if (A.name) lines.push("📲 " + A.name + (A.brokerage ? ", " + A.brokerage : "") + (A.phone ? "  ·  " + A.phone : ""));
+    var tags = ["#JustListed", "#RealEstate", "#ForSale"];
+    if (L.city) tags.push("#" + String(L.city).split(",")[0].replace(/[^A-Za-z0-9]/g, ""));
+    if (A.brokerage) tags.push("#" + A.brokerage.replace(/[^A-Za-z0-9]/g, ""));
+    tags.push("#HomeForSale", "#DreamHome", "#RealEstateReels");
+    lines.push(""); lines.push(tags.join(" "));
+    return lines.join("\n");
+  }
+  function fillCaption(force) { var t = $("shareCaption"); if (!t) return; if (force || !t.value.trim()) t.value = captionText(); }
+  function shareVideo() {
+    if (!lastExport) { setStatus("Export a video first, then Share.", "err"); return; }
+    var file = new File([lastExport.blob], lastExport.filename, { type: lastExport.blob.type || "video/mp4" });
+    var text = $("shareCaption").value || captionText();
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      navigator.share({ files: [file], text: text }).catch(function () {});
+    } else if (navigator.share) {
+      navigator.share({ text: text }).catch(function () {});
+    } else {
+      setStatus("This browser can't share files directly — use Download, then upload. (Share… works best on phones.)", "err");
+    }
+  }
+  function copyCaption() {
+    var t = $("shareCaption").value || captionText();
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(function () { setStatus("Caption copied.", "ok"); }, function () { setStatus("Couldn't copy — select the text manually.", "err"); });
+    else setStatus("Copy not supported here — select the caption text manually.", "err");
+  }
+  function openIntent(kind) {
+    var text = $("shareCaption").value || captionText(), url = ($("shareUrl").value || "").trim(), enc = encodeURIComponent, u;
+    if (kind === "x") u = "https://twitter.com/intent/tweet?text=" + enc(text + (url ? "\n" + url : ""));
+    else if (kind === "wa") u = "https://wa.me/?text=" + enc(text + (url ? "\n" + url : ""));
+    else if (kind === "fb") { if (!url) { setStatus("Add a listing link first for Facebook.", "err"); return; } u = "https://www.facebook.com/sharer/sharer.php?u=" + enc(url) + "&quote=" + enc(text); }
+    else if (kind === "li") { if (!url) { setStatus("Add a listing link first for LinkedIn.", "err"); return; } u = "https://www.linkedin.com/sharing/share-offsite/?url=" + enc(url); }
+    if (u) window.open(u, "_blank", "noopener");
   }
 
   function setStatus(msg, cls) { var s = $("status"); s.textContent = msg; s.className = "status" + (cls ? " " + cls : ""); }
@@ -2224,6 +2306,17 @@
     ["f_tagline","f_address","f_city","f_price","f_beds","f_baths","f_sqft","f_name","f_title","f_brokerage","f_phone","f_email","f_license","f_cta"].forEach(function (id) {
       $(id).addEventListener("input", function () { rebuild(); scheduleAutosave(); updateHookChips(); });
     });
+
+    // Share & publish
+    $("shareNative").onclick = shareVideo;
+    $("copyCap").onclick = copyCaption;
+    $("capRegen").onclick = function () { fillCaption(true); };
+    $("shX").onclick = function () { openIntent("x"); };
+    $("shFb").onclick = function () { openIntent("fb"); };
+    $("shLi").onclick = function () { openIntent("li"); };
+    $("shWa").onclick = function () { openIntent("wa"); };
+    fillCaption(false);
+    enableShare();
 
     var mp4 = window.MediaRecorder && (MediaRecorder.isTypeSupported("video/mp4") || MediaRecorder.isTypeSupported("video/mp4;codecs=avc1.42E01E"));
     $("exportHint").textContent = mp4
