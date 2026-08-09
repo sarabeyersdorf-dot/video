@@ -553,6 +553,10 @@
             </select>
           </div>
           <span class="hint">The Goldframe logo animates in — brackets, play button, then the wordmark. Great as an opening or closing sting.</span>
+          <div style="display:flex;gap:12px;align-items:center;margin-top:8px;flex-wrap:wrap">
+            <label class="toggle" style="margin:0"><input type="checkbox" id="f_whoosh" checked> Whoosh sound effect</label>
+            <button class="btn ghost" id="whooshTest" type="button" style="font-size:12px;padding:5px 10px">&#9654; Hear it</button>
+          </div>
         </label>
         <label class="toggle" style="margin-bottom:8px"><input type="checkbox" id="f_seal"> LP seal watermark on every clip</label>
         <label class="field" id="sealPosWrap">Watermark corner
@@ -3164,6 +3168,7 @@ var qrcode = function() {
     brandProfile: "james", // which saved profile brands this video
     brandCard: { placement: "outro", variant: "auto" }, // Legacy Properties animated brand card
     goldframe: { placement: "off", variant: "charcoal" }, // Goldframe animated logo sting
+    sfxWhoosh: true,         // whoosh sound effect on the Goldframe sting
     sealWatermark: true, // persistent LP seal on every clip
     sealPos: "tr",       // tl | tr | bl | br
     listingUrl: "",      // link the QR code points to
@@ -3583,11 +3588,11 @@ var qrcode = function() {
     ctx.translate(cx, cy);
     ctx.shadowColor = "rgba(0,0,0,0.35)"; ctx.shadowBlur = 6 * s;
     ctx.save(); ctx.rotate(Math.PI / 4);
-    ctx.globalAlpha = 0.92; ctx.strokeStyle = col; ctx.lineWidth = Math.max(1.2, 1.7 * s); ctx.strokeRect(-D / 2, -D / 2, D, D);
-    ctx.globalAlpha = 0.5; ctx.lineWidth = Math.max(1, 1.1 * s); var Di = D - 14 * s; ctx.strokeRect(-Di / 2, -Di / 2, Di, Di);
+    ctx.globalAlpha = 0.95; ctx.strokeStyle = col; ctx.lineWidth = Math.max(2, 2.6 * s); ctx.strokeRect(-D / 2, -D / 2, D, D);
+    ctx.globalAlpha = 0.6; ctx.lineWidth = Math.max(1.4, 1.7 * s); var Di = D - 14 * s; ctx.strokeRect(-Di / 2, -Di / 2, Di, Di);
     ctx.restore();
     ctx.shadowColor = "transparent";
-    ctx.globalAlpha = 0.95; ctx.fillStyle = col; ctx.font = "italic 500 " + (22 * s) + "px " + SERIF;
+    ctx.globalAlpha = 0.98; ctx.fillStyle = col; ctx.font = "italic 700 " + (23 * s) + "px " + SERIF;
     ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("LP", 0, 1 * s);
     ctx.restore();
   }
@@ -3881,19 +3886,21 @@ var qrcode = function() {
     ctx.rotate((-48 * Math.PI / 180) * (1 - backP));
     var sc = 0.42 + 0.58 * backP; ctx.scale(sc, sc);
     ctx.save(); ctx.rotate(Math.PI / 4);
-    ctx.strokeStyle = v.brass; ctx.lineWidth = Math.max(1.4, 1.8 * s); ctx.strokeRect(-D / 2, -D / 2, D, D);
-    ctx.globalAlpha = sealP * 0.5; ctx.strokeStyle = v.inner; ctx.lineWidth = Math.max(1, 1.2 * s);
+    ctx.strokeStyle = v.brass; ctx.lineWidth = Math.max(2.4, 3 * s); ctx.strokeRect(-D / 2, -D / 2, D, D);
+    ctx.globalAlpha = sealP * 0.6; ctx.strokeStyle = v.inner; ctx.lineWidth = Math.max(1.6, 1.9 * s);
     var Di = D - 30 * s; ctx.strokeRect(-Di / 2, -Di / 2, Di, Di);
     ctx.restore();
     ctx.globalAlpha = sealP; ctx.fillStyle = v.brass;
-    ctx.font = "italic 500 " + (50 * s) + "px " + SERIF; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.font = "italic 700 " + (52 * s) + "px " + SERIF; ctx.textAlign = "center"; ctx.textBaseline = "middle";
     ctx.fillText("LP", 0, 2 * s);
     ctx.restore();
 
-    // wordmark, sliding in from the left
+    // wordmark — bold, capitalized, sliding in from the left
     ctx.save(); ctx.globalAlpha = wordP; ctx.fillStyle = v.word;
-    ctx.font = "italic 500 " + wordSize + "px " + SERIF; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    ctx.fillText("Legacy Properties", cx + (1 - wordP) * (-18 * s), wordCy);
+    ctx.font = "700 " + (wordSize * 0.92) + "px " + SERIF; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    if ("letterSpacing" in ctx) ctx.letterSpacing = (2 * s) + "px";
+    ctx.fillText("LEGACY PROPERTIES", cx + (1 - wordP) * (-18 * s), wordCy);
+    if ("letterSpacing" in ctx) ctx.letterSpacing = "0px";
     ctx.restore();
 
     // tagline, spaced mono, fading in
@@ -4147,12 +4154,13 @@ var qrcode = function() {
     startVideosAt(playhead);
     startMusic(playhead);
     startVoice(playhead);
+    startWhooshes(playhead);
     rafId = requestAnimationFrame(loop);
   }
   function stop() {
     playing = false; $("playBtn").textContent = "▶"; $("playBtn").setAttribute("aria-label", "Play");
     if (rafId) cancelAnimationFrame(rafId);
-    pauseVideos(); stopMusic(); stopVoice();
+    pauseVideos(); stopMusic(); stopVoice(); stopWhooshes();
   }
   function seek(t) {
     playhead = Math.max(0, Math.min(timeline.total, t));
@@ -4237,6 +4245,62 @@ var qrcode = function() {
   }
   function stopVoice() { if (voiceNodes) { try { voiceNodes.src.stop(); } catch (e) {} voiceNodes = null; } }
   function voEnd() { return state.voice ? VO_START + state.voice.duration : 0; }
+
+  // ------------------------------------------------ whoosh SFX for the sting
+  var whooshNodes = [];
+  function hasSting() { return (timeline.segs || []).some(function (s) { return s.type === "goldframe"; }); }
+  function wantsWhoosh() { return !!state.sfxWhoosh && hasSting(); }
+  // A synthesized cinematic whoosh: filtered-noise sweep that swells as the
+  // brackets fly in, plus a low thump landing on the play-button pop (~0.78s).
+  function scheduleWhoosh(ac, when, vol, dests) {
+    var dur = 0.92;
+    var noise = ac.createBufferSource();
+    var nb = ac.createBuffer(1, Math.max(1, Math.ceil(ac.sampleRate * dur)), ac.sampleRate);
+    var d = nb.getChannelData(0);
+    for (var i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length * 0.3);
+    noise.buffer = nb;
+    var bp = ac.createBiquadFilter(); bp.type = "bandpass"; bp.Q.value = 0.85;
+    bp.frequency.setValueAtTime(280, when);
+    bp.frequency.exponentialRampToValueAtTime(2600, when + 0.6);
+    bp.frequency.exponentialRampToValueAtTime(520, when + dur);
+    var hp = ac.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 180;
+    var g = ac.createGain();
+    g.gain.setValueAtTime(0.0001, when);
+    g.gain.exponentialRampToValueAtTime(vol, when + 0.55);
+    g.gain.exponentialRampToValueAtTime(0.0001, when + dur);
+    noise.connect(bp); bp.connect(hp); hp.connect(g); g.connect(ac.destination);
+    dests.forEach(function (dst) { if (dst) g.connect(dst); });
+    try { noise.start(when); noise.stop(when + dur); } catch (e) {}
+    // low thump on the play-button pop
+    var imp = ac.createOscillator(); imp.type = "sine";
+    var ig = ac.createGain();
+    imp.frequency.setValueAtTime(170, when + 0.62);
+    imp.frequency.exponentialRampToValueAtTime(70, when + 0.86);
+    ig.gain.setValueAtTime(0.0001, when + 0.62);
+    ig.gain.exponentialRampToValueAtTime(vol * 0.8, when + 0.7);
+    ig.gain.exponentialRampToValueAtTime(0.0001, when + 0.9);
+    imp.connect(ig); ig.connect(ac.destination);
+    dests.forEach(function (dst) { if (dst) ig.connect(dst); });
+    try { imp.start(when + 0.62); imp.stop(when + 0.92); } catch (e) {}
+    whooshNodes.push(noise, imp);
+  }
+  function startWhooshes(fromT, extraDest) {
+    if (!wantsWhoosh()) return;
+    var ac = ensureAudio(); if (!ac) return;
+    var now = ac.currentTime;
+    (timeline.segs || []).forEach(function (sg) {
+      if (sg.type !== "goldframe") return;
+      var when = now + (sg.start - fromT);
+      if (when < now - 0.05) return;              // sting already elapsed
+      scheduleWhoosh(ac, Math.max(now + 0.01, when), 0.5, [extraDest]);
+    });
+  }
+  function stopWhooshes() { whooshNodes.forEach(function (n) { try { n.stop(); } catch (e) {} }); whooshNodes = []; }
+  function previewWhoosh() {
+    var ac = ensureAudio(); if (!ac) return;
+    if (ac.state === "suspended") ac.resume();
+    scheduleWhoosh(ac, ac.currentTime + 0.03, 0.5, []);
+  }
 
   function setVoiceBlob(blob, name) {
     var ac = ensureAudio(); if (!ac) return Promise.resolve();
@@ -4425,7 +4489,7 @@ var qrcode = function() {
       if (!window.MediaRecorder || mime === "") { setStatus("Your browser can't record video — try Chrome, Edge, or Safari.", "err"); resolve(false); return; }
       var ac = ensureAudio(), fps = 30;
       var vstream = canvas.captureStream(fps), tracks = vstream.getVideoTracks(), dest = null;
-      if (((state.music && state.music.buffer) || (state.voice && state.voice.buffer)) && ac) dest = ac.createMediaStreamDestination();
+      if (((state.music && state.music.buffer) || (state.voice && state.voice.buffer) || wantsWhoosh()) && ac) dest = ac.createMediaStreamDestination();
       var allTracks = tracks.slice(); if (dest) allTracks = allTracks.concat(dest.stream.getAudioTracks());
       var rec;
       try { rec = new MediaRecorder(new MediaStream(allTracks), { mimeType: mime, videoBitsPerSecond: 10000000 }); }
@@ -4447,12 +4511,12 @@ var qrcode = function() {
       exporting = true;
       setStatus((prefix || "") + "Recording… keep this tab in front (" + fmt(timeline.total) + "s).");
       playhead = 0; syncScrub(); startVideosAt(0);
-      if (dest) { startMusic(0, dest); startVoice(0, dest); }
+      if (dest) { startMusic(0, dest); startVoice(0, dest); startWhooshes(0, dest); }
       rec.start();
       var t0 = performance.now();
       function ex() {
         var t = (performance.now() - t0) / 1000; playhead = t;
-        if (t >= timeline.total) { drawAt(timeline.total); syncScrub(); try { rec.stop(); } catch (e) {} pauseVideos(); stopMusic(); stopVoice(); return; }
+        if (t >= timeline.total) { drawAt(timeline.total); syncScrub(); try { rec.stop(); } catch (e) {} pauseVideos(); stopMusic(); stopVoice(); stopWhooshes(); return; }
         syncVideos(t); drawAt(t); syncScrub(); requestAnimationFrame(ex);
       }
       requestAnimationFrame(ex);
@@ -4611,7 +4675,7 @@ var qrcode = function() {
   function setMusicBlob(blob, name) { var ac = ensureAudio(); if (!ac) return Promise.resolve(); return blob.arrayBuffer().then(function (b) { return ac.decodeAudioData(b); }).then(function (audio) { state.music = { buffer: audio, name: name || "music", blob: blob }; try { state.music.beat = analyzeBeats(audio); } catch (e) { state.music.beat = null; } $("musicLabel").textContent = "Music added ✓ — " + (name || ""); updateBeatUI(); }).catch(function () {}); }
 
   // ------------------------------------------------ read/apply settings
-  function settingsObj() { return { format: state.format, theme: state.theme, accent: state.accent, clip: state.clip, trans: state.trans, intro: state.intro, outro: state.outro, musicVol: state.musicVol, bannerMode: state.bannerMode, syncBeats: state.syncBeats, hookText: state.hookText, hookStyle: state.hookStyle, hookPos: state.hookPos, endHookText: state.endHookText, capStyle: state.capStyle, capPos: state.capPos, ltPos: state.ltPos, textPos: state.textPos, voScript: state.voScript, voVolume: state.voVolume, duck: state.duck, ttsRate: state.ttsRate, brandProfile: state.brandProfile, brandCardPlace: state.brandCard.placement, brandCardVariant: state.brandCard.variant, goldframePlace: state.goldframe.placement, goldframeVariant: state.goldframe.variant, sealWatermark: state.sealWatermark, sealPos: state.sealPos, listingUrl: state.listingUrl, qrOn: state.qrOn }; }
+  function settingsObj() { return { format: state.format, theme: state.theme, accent: state.accent, clip: state.clip, trans: state.trans, intro: state.intro, outro: state.outro, musicVol: state.musicVol, bannerMode: state.bannerMode, syncBeats: state.syncBeats, hookText: state.hookText, hookStyle: state.hookStyle, hookPos: state.hookPos, endHookText: state.endHookText, capStyle: state.capStyle, capPos: state.capPos, ltPos: state.ltPos, textPos: state.textPos, voScript: state.voScript, voVolume: state.voVolume, duck: state.duck, ttsRate: state.ttsRate, brandProfile: state.brandProfile, brandCardPlace: state.brandCard.placement, brandCardVariant: state.brandCard.variant, goldframePlace: state.goldframe.placement, goldframeVariant: state.goldframe.variant, sfxWhoosh: state.sfxWhoosh, sealWatermark: state.sealWatermark, sealPos: state.sealPos, listingUrl: state.listingUrl, qrOn: state.qrOn }; }
   function setV(id, v) { if (v != null) $(id).value = v; }
   function applySettings(d) {
     if (!d) return;
@@ -4645,6 +4709,7 @@ var qrcode = function() {
     if (d.brandCardVariant) { state.brandCard.variant = d.brandCardVariant; }
     if (d.goldframePlace) { state.goldframe.placement = d.goldframePlace; }
     if (d.goldframeVariant) { state.goldframe.variant = d.goldframeVariant; }
+    if (d.sfxWhoosh != null) { state.sfxWhoosh = d.sfxWhoosh; if ($("f_whoosh")) $("f_whoosh").checked = d.sfxWhoosh; }
     if (d.sealWatermark != null) { state.sealWatermark = d.sealWatermark; }
     if (d.sealPos) { state.sealPos = d.sealPos; }
     if (d.listingUrl != null) { state.listingUrl = d.listingUrl; if ($("shareUrl")) $("shareUrl").value = d.listingUrl; }
@@ -5090,6 +5155,8 @@ var qrcode = function() {
     Array.prototype.forEach.call($("brandCardSeg").children, function (btn) { btn.onclick = function () { state.brandCard.placement = btn.dataset.place; updateBrandCardUI(); rebuild(); drawAt(posterTime()); scheduleAutosave(); }; });
     Array.prototype.forEach.call($("gfSeg").children, function (btn) { btn.onclick = function () { state.goldframe.placement = btn.dataset.place; updateGoldframeUI(); rebuild(); drawAt(posterTime()); scheduleAutosave(); }; });
     $("gfVariant").onchange = function () { state.goldframe.variant = $("gfVariant").value; updateGoldframeUI(); rebuild(); drawAt(posterTime()); scheduleAutosave(); };
+    $("f_whoosh").onchange = function () { state.sfxWhoosh = $("f_whoosh").checked; scheduleAutosave(); };
+    $("whooshTest").onclick = previewWhoosh;
     $("brandCardVariant").onchange = function () { state.brandCard.variant = $("brandCardVariant").value; rebuild(); drawAt(posterTime()); scheduleAutosave(); };
     $("f_seal").onchange = function () { state.sealWatermark = $("f_seal").checked; updateSealUI(); rebuild(); drawAt(posterTime()); scheduleAutosave(); };
     $("f_sealPos").onchange = function () { state.sealPos = $("f_sealPos").value; rebuild(); drawAt(posterTime()); scheduleAutosave(); };
