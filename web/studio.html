@@ -204,6 +204,44 @@
   .asset .as { font-size:11px; color:var(--faint); margin-top:3px; }
   .asset img { max-height:54px; max-width:100%; margin-top:8px; border-radius:6px; background:#0007; }
   .storage-note { font-size:11.5px; color:var(--faint); margin-top:14px; line-height:1.5; }
+
+  /* ===================== colorful pro refresh ===================== */
+  :root{
+    --bg:#0C0E14; --bg-2:#131826; --panel:#161C29; --panel-2:#1F2634; --line:#242C3C; --line-2:#354057;
+    --ink:#EEF1F8; --muted:#9CA5B8; --faint:#6A7488;
+    --c1:#37C2A6; --c2:#7C6CF2; --c3:#F2934B; --c4:#F0608A; --c5:#4FA3F0; --c6:#5FC08A; --c7:#C6A15B; --c8:#E9B45C;
+  }
+  body{ background:
+      radial-gradient(1200px 480px at 12% -8%, rgba(124,108,242,.10), transparent 60%),
+      radial-gradient(1100px 520px at 100% 0%, rgba(55,194,166,.09), transparent 55%),
+      var(--bg); }
+  .brand h1{
+    background:linear-gradient(95deg,#F0D089 0%,#C6A15B 28%,#7C6CF2 72%,#4FA3F0 100%);
+    -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; color:transparent;
+  }
+  .brand h1 .mark{ -webkit-text-fill-color:transparent; }
+  button.btn.primary{ background:linear-gradient(135deg,#EAC471,#C6A15B); border-color:transparent; color:#1a1508; box-shadow:0 6px 18px -8px rgba(198,161,91,.55); }
+  button.btn.primary:hover{ filter:brightness(1.05); }
+  .play{ background:linear-gradient(135deg,#20263a,#171c2b); }
+
+  /* per-section accent colors */
+  .controls > section.card{ border-top:3px solid var(--ca,var(--accent)); transition:border-color .15s, transform .15s; }
+  .controls > section.card:hover{ border-color:color-mix(in srgb, var(--ca,var(--accent)) 55%, var(--line-2)); }
+  .controls > section.card > h2{ display:flex; align-items:center; gap:10px; }
+  .controls > section.card > h2::before{ content:""; width:11px; height:11px; border-radius:3.5px; background:var(--ca,var(--accent)); box-shadow:0 0 0 4px color-mix(in srgb, var(--ca,var(--accent)) 20%, transparent); flex:none; }
+  .controls > section.card:nth-of-type(1){ --ca:var(--c1); }
+  .controls > section.card:nth-of-type(2){ --ca:var(--c2); }
+  .controls > section.card:nth-of-type(3){ --ca:var(--c5); }
+  .controls > section.card:nth-of-type(4){ --ca:var(--c7); }
+  .controls > section.card:nth-of-type(5){ --ca:var(--c6); }
+  .controls > section.card:nth-of-type(6){ --ca:var(--c4); }
+  .controls > section.card:nth-of-type(7){ --ca:var(--c3); }
+  .controls > section.card:nth-of-type(8){ --ca:var(--c8); }
+  .controls .drop:hover, .controls .drop.over{ border-color:var(--ca,var(--accent)); color:var(--ink); background:color-mix(in srgb, var(--ca,var(--accent)) 8%, var(--bg-2)); }
+  .controls .tagchip:hover{ border-color:var(--ca,var(--accent)); color:var(--ink); }
+  .controls section.card .badge.vid{ color:var(--c3); border-color:color-mix(in srgb,var(--c3) 40%, transparent); }
+  /* segmented + primary chrome pops */
+  .seg button[aria-pressed="true"]{ background:linear-gradient(135deg,#2a3350,#212840); color:#fff; }
 </style>
 
 <div class="app">
@@ -325,6 +363,15 @@
               <option value="light">Cream (light)</option>
             </select>
           </div>
+        </label>
+        <label class="toggle" style="margin-bottom:8px"><input type="checkbox" id="f_seal"> LP seal watermark on every clip</label>
+        <label class="field" id="sealPosWrap">Watermark corner
+          <select id="f_sealPos">
+            <option value="tl">Top-left</option>
+            <option value="tr">Top-right</option>
+            <option value="bl">Bottom-left</option>
+            <option value="br">Bottom-right</option>
+          </select>
         </label>
         <div class="fields">
           <label class="field">Name<input type="text" id="f_name" placeholder="James Beyersdorf"></label>
@@ -600,7 +647,9 @@
     duck: true,              // lower music under the voiceover
     ttsRate: 1.0,
     brandProfile: "james", // which saved profile brands this video
-    brandCard: { placement: "outro", variant: "auto" } // Legacy Properties animated brand card
+    brandCard: { placement: "outro", variant: "auto" }, // Legacy Properties animated brand card
+    sealWatermark: true, // persistent LP seal on every clip
+    sealPos: "tr"        // tl | tr | bl | br
   };
   var uid = 1;
   function newId() { return "p_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 7); }
@@ -953,6 +1002,27 @@
       var bw = 92 * s, bh = bw * (ih / iw);
       ctx.save(); ctx.globalAlpha = 0.92; ctx.drawImage(ic, 26 * s, 26 * s, bw, bh); ctx.restore();
     }
+    drawSealWatermark(W, H);
+  }
+
+  // Small Legacy Properties diamond seal, in the theme accent, on every clip.
+  function drawSealWatermark(W, H) {
+    if (!state.sealWatermark) return;
+    var s = W / 720, D = 62 * s, m = 34 * s, pos = state.sealPos || "tr";
+    var cx = /r/.test(pos) ? W - m - D / 2 : m + D / 2;
+    var cy = /t/.test(pos) ? m + D / 2 : H - m - D / 2 - (/b/.test(pos) ? H * 0.02 : 0);
+    var col = (theme().accent) || state.accent || "#C6A15B";
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.shadowColor = "rgba(0,0,0,0.35)"; ctx.shadowBlur = 6 * s;
+    ctx.save(); ctx.rotate(Math.PI / 4);
+    ctx.globalAlpha = 0.92; ctx.strokeStyle = col; ctx.lineWidth = Math.max(1.2, 1.7 * s); ctx.strokeRect(-D / 2, -D / 2, D, D);
+    ctx.globalAlpha = 0.5; ctx.lineWidth = Math.max(1, 1.1 * s); var Di = D - 14 * s; ctx.strokeRect(-Di / 2, -Di / 2, Di, Di);
+    ctx.restore();
+    ctx.shadowColor = "transparent";
+    ctx.globalAlpha = 0.95; ctx.fillStyle = col; ctx.font = "italic 500 " + (22 * s) + "px " + SERIF;
+    ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("LP", 0, 1 * s);
+    ctx.restore();
   }
 
   function roundRect(x, y, w, h, r) {
@@ -1641,7 +1711,7 @@
   function setMusicBlob(blob, name) { var ac = ensureAudio(); if (!ac) return Promise.resolve(); return blob.arrayBuffer().then(function (b) { return ac.decodeAudioData(b); }).then(function (audio) { state.music = { buffer: audio, name: name || "music", blob: blob }; try { state.music.beat = analyzeBeats(audio); } catch (e) { state.music.beat = null; } $("musicLabel").textContent = "Music added ✓ — " + (name || ""); updateBeatUI(); }).catch(function () {}); }
 
   // ------------------------------------------------ read/apply settings
-  function settingsObj() { return { format: state.format, theme: state.theme, accent: state.accent, clip: state.clip, trans: state.trans, intro: state.intro, outro: state.outro, musicVol: state.musicVol, bannerMode: state.bannerMode, syncBeats: state.syncBeats, hookText: state.hookText, hookStyle: state.hookStyle, hookPos: state.hookPos, endHookText: state.endHookText, capStyle: state.capStyle, voScript: state.voScript, voVolume: state.voVolume, duck: state.duck, ttsRate: state.ttsRate, brandProfile: state.brandProfile, brandCardPlace: state.brandCard.placement, brandCardVariant: state.brandCard.variant }; }
+  function settingsObj() { return { format: state.format, theme: state.theme, accent: state.accent, clip: state.clip, trans: state.trans, intro: state.intro, outro: state.outro, musicVol: state.musicVol, bannerMode: state.bannerMode, syncBeats: state.syncBeats, hookText: state.hookText, hookStyle: state.hookStyle, hookPos: state.hookPos, endHookText: state.endHookText, capStyle: state.capStyle, voScript: state.voScript, voVolume: state.voVolume, duck: state.duck, ttsRate: state.ttsRate, brandProfile: state.brandProfile, brandCardPlace: state.brandCard.placement, brandCardVariant: state.brandCard.variant, sealWatermark: state.sealWatermark, sealPos: state.sealPos }; }
   function setV(id, v) { if (v != null) $(id).value = v; }
   function applySettings(d) {
     if (!d) return;
@@ -1667,7 +1737,9 @@
     if (d.brandProfile) { state.brandProfile = d.brandProfile; applyProfile(d.brandProfile); }
     if (d.brandCardPlace) { state.brandCard.placement = d.brandCardPlace; }
     if (d.brandCardVariant) { state.brandCard.variant = d.brandCardVariant; }
-    updateBrandCardUI();
+    if (d.sealWatermark != null) { state.sealWatermark = d.sealWatermark; }
+    if (d.sealPos) { state.sealPos = d.sealPos; }
+    updateBrandCardUI(); updateSealUI();
     updateHookChips();
   }
   function applyListing(L) { L = L || {}; setV("f_tagline", L.tagline); setV("f_address", L.address); setV("f_city", L.city); setV("f_price", L.price); setV("f_beds", L.beds); setV("f_baths", L.baths); setV("f_sqft", L.sqft); }
@@ -1733,6 +1805,7 @@
     if (p.headshotBlob) setHeadshot(p.headshotBlob); else { state.headshot = null; }
     updateBrandSeg();
   }
+  function updateSealUI() { var c = $("f_seal"); if (c) c.checked = state.sealWatermark; var sp = $("f_sealPos"); if (sp) sp.value = state.sealPos; var w = $("sealPosWrap"); if (w) w.style.display = state.sealWatermark ? "flex" : "none"; }
   function updateBrandCardUI() { var seg = $("brandCardSeg"); if (seg) Array.prototype.forEach.call(seg.children, function (b) { b.setAttribute("aria-pressed", b.dataset.place === state.brandCard.placement ? "true" : "false"); }); var sel = $("brandCardVariant"); if (sel) sel.value = state.brandCard.variant; }
   function updateBrandSeg() { var seg = $("brandSeg"); if (!seg) return; Array.prototype.forEach.call(seg.children, function (b) { b.setAttribute("aria-pressed", b.dataset.profile === state.brandProfile ? "true" : "false"); }); }
   function selectBrandProfile(key) { applyProfile(key); rebuild(); drawAt(posterTime()); scheduleAutosave(); setStatus("Branding: " + profile(key).name, "ok"); }
@@ -2085,7 +2158,9 @@
     Array.prototype.forEach.call($("bkProfileSeg").children, function (btn) { btn.onclick = function () { switchEditProfile(btn.dataset.profile); }; });
     Array.prototype.forEach.call($("brandCardSeg").children, function (btn) { btn.onclick = function () { state.brandCard.placement = btn.dataset.place; updateBrandCardUI(); rebuild(); drawAt(posterTime()); scheduleAutosave(); }; });
     $("brandCardVariant").onchange = function () { state.brandCard.variant = $("brandCardVariant").value; rebuild(); drawAt(posterTime()); scheduleAutosave(); };
-    updateBrandCardUI();
+    $("f_seal").onchange = function () { state.sealWatermark = $("f_seal").checked; updateSealUI(); rebuild(); drawAt(posterTime()); scheduleAutosave(); };
+    $("f_sealPos").onchange = function () { state.sealPos = $("f_sealPos").value; rebuild(); drawAt(posterTime()); scheduleAutosave(); };
+    updateBrandCardUI(); updateSealUI();
     $("f_hook").value = state.hookText; $("f_hookStyle").value = state.hookStyle; $("f_hookPos").value = state.hookPos; $("f_endhook").value = state.endHookText; $("f_capStyle").value = state.capStyle;
     $("f_hook").addEventListener("input", function () { state.hookText = $("f_hook").value; rebuild(); scheduleAutosave(); });
     $("f_hookStyle").onchange = function () { state.hookStyle = $("f_hookStyle").value; rebuild(); scheduleAutosave(); };
