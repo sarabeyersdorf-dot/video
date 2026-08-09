@@ -637,12 +637,28 @@
         <label class="field full" style="margin-top:12px">Closing hook (optional)
           <input type="text" id="f_endhook" placeholder="BOOK A PRIVATE TOUR">
         </label>
-        <label class="field" style="margin-top:12px">Caption animation
-          <select id="f_capStyle">
-            <option value="slide">Slide up</option>
-            <option value="pop">Pop</option>
-            <option value="fade">Fade</option>
+        <div class="subgrid" style="margin-top:12px">
+          <label class="field">Caption animation
+            <select id="f_capStyle">
+              <option value="slide">Slide up</option>
+              <option value="pop">Pop</option>
+              <option value="fade">Fade</option>
+            </select>
+          </label>
+          <label class="field">Caption position
+            <select id="f_capPos">
+              <option value="top">Top</option>
+              <option value="center">Center</option>
+              <option value="bottom">Bottom</option>
+            </select>
+          </label>
+        </div>
+        <label class="field" style="margin-top:12px">Agent nameplate position
+          <select id="f_ltPos">
+            <option value="bottom">Bottom</option>
+            <option value="top">Top</option>
           </select>
+          <span class="hint">Move the photo caption and the agent nameplate to opposite ends so they never overlap.</span>
         </label>
       </section>
 
@@ -3104,6 +3120,8 @@ var qrcode = function() {
     hookPos: "center",       // top | center | bottom
     endHookText: "",         // closing hook (near the outro)
     capStyle: "slide",       // caption animation: fade | slide | pop
+    capPos: "bottom",        // photo caption position: top | center | bottom
+    ltPos: "bottom",         // agent nameplate / banner position: top | bottom
     voScript: "",            // narration script
     voice: null,             // {blob,buffer,name,duration}
     voVolume: 1.0,
@@ -3602,9 +3620,11 @@ var qrcode = function() {
     ctx.save();
     ctx.globalAlpha = alpha;
 
+    var atTop = state.ltPos === "top";
     if (state.bannerMode === "banner" && state.banner && state.banner.el && state.banner.el.complete) {
       var bn = state.banner.el, bw = bn.naturalWidth || 1, bh = bn.naturalHeight || 1;
-      var w = Math.min(W * 0.74, 560 * s), h = w * (bh / bw), x = (W - w) / 2, y = H - h - 46 * s + offY;
+      var w = Math.min(W * 0.74, 560 * s), h = w * (bh / bw), x = (W - w) / 2;
+      var y = (atTop ? 46 * s : H - h - 46 * s) + offY;
       ctx.drawImage(bn, x, y, w, h);
       ctx.restore();
       return;
@@ -3634,9 +3654,9 @@ var qrcode = function() {
     var nameH = nameSize, subH = sub ? subSize : 0, lineGap = sub ? 12 * s : 0;
     var blockH = nameH + lineGap + subH;
     var boxX = padX - 16 * s;
-    var boxTop = H - 150 * s + offY;
     var boxW = (textLeft - boxX) + blockW + 26 * s;
     var boxH = blockH + 34 * s;
+    var boxTop = (atTop ? 40 * s : H - 150 * s) + offY;
 
     // scrim
     ctx.fillStyle = "rgba(0,0,0,0.44)";
@@ -3737,7 +3757,12 @@ var qrcode = function() {
     var scale = style === "pop" ? (0.7 + 0.3 * easeOutBack(appear)) : 1;
 
     ctx.save(); ctx.globalAlpha = a;
-    var bandH = 130 * s, bandY = H - bandH - H * 0.06 + offY;
+    var bandH = 130 * s;
+    var pos = state.capPos || "bottom";
+    var baseY = pos === "top" ? H * 0.09
+              : pos === "center" ? (H - bandH) / 2
+              : H - bandH - H * 0.06;
+    var bandY = baseY + offY;
     var cx = W * 0.08;
     if (scale !== 1) { ctx.translate(cx, bandY + bandH / 2); ctx.scale(scale, scale); ctx.translate(-cx, -(bandY + bandH / 2)); }
     ctx.fillStyle = "rgba(0,0,0,0.42)"; ctx.fillRect(0, bandY, W, bandH);
@@ -4435,7 +4460,7 @@ var qrcode = function() {
   function setMusicBlob(blob, name) { var ac = ensureAudio(); if (!ac) return Promise.resolve(); return blob.arrayBuffer().then(function (b) { return ac.decodeAudioData(b); }).then(function (audio) { state.music = { buffer: audio, name: name || "music", blob: blob }; try { state.music.beat = analyzeBeats(audio); } catch (e) { state.music.beat = null; } $("musicLabel").textContent = "Music added ✓ — " + (name || ""); updateBeatUI(); }).catch(function () {}); }
 
   // ------------------------------------------------ read/apply settings
-  function settingsObj() { return { format: state.format, theme: state.theme, accent: state.accent, clip: state.clip, trans: state.trans, intro: state.intro, outro: state.outro, musicVol: state.musicVol, bannerMode: state.bannerMode, syncBeats: state.syncBeats, hookText: state.hookText, hookStyle: state.hookStyle, hookPos: state.hookPos, endHookText: state.endHookText, capStyle: state.capStyle, voScript: state.voScript, voVolume: state.voVolume, duck: state.duck, ttsRate: state.ttsRate, brandProfile: state.brandProfile, brandCardPlace: state.brandCard.placement, brandCardVariant: state.brandCard.variant, goldframePlace: state.goldframe.placement, goldframeVariant: state.goldframe.variant, sealWatermark: state.sealWatermark, sealPos: state.sealPos, listingUrl: state.listingUrl, qrOn: state.qrOn }; }
+  function settingsObj() { return { format: state.format, theme: state.theme, accent: state.accent, clip: state.clip, trans: state.trans, intro: state.intro, outro: state.outro, musicVol: state.musicVol, bannerMode: state.bannerMode, syncBeats: state.syncBeats, hookText: state.hookText, hookStyle: state.hookStyle, hookPos: state.hookPos, endHookText: state.endHookText, capStyle: state.capStyle, capPos: state.capPos, ltPos: state.ltPos, voScript: state.voScript, voVolume: state.voVolume, duck: state.duck, ttsRate: state.ttsRate, brandProfile: state.brandProfile, brandCardPlace: state.brandCard.placement, brandCardVariant: state.brandCard.variant, goldframePlace: state.goldframe.placement, goldframeVariant: state.goldframe.variant, sealWatermark: state.sealWatermark, sealPos: state.sealPos, listingUrl: state.listingUrl, qrOn: state.qrOn }; }
   function setV(id, v) { if (v != null) $(id).value = v; }
   function applySettings(d) {
     if (!d) return;
@@ -4454,6 +4479,8 @@ var qrcode = function() {
     if (d.hookPos) { state.hookPos = d.hookPos; $("f_hookPos").value = d.hookPos; }
     if (d.endHookText != null) { state.endHookText = d.endHookText; $("f_endhook").value = d.endHookText; }
     if (d.capStyle) { state.capStyle = d.capStyle; $("f_capStyle").value = d.capStyle; }
+    if (d.capPos) { state.capPos = d.capPos; $("f_capPos").value = d.capPos; }
+    if (d.ltPos) { state.ltPos = d.ltPos; $("f_ltPos").value = d.ltPos; }
     if (d.voScript != null) { state.voScript = d.voScript; $("vo_script").value = d.voScript; }
     if (d.voVolume != null) { state.voVolume = d.voVolume; $("vo_vol").value = Math.round(d.voVolume * 100); }
     if (d.duck != null) { state.duck = d.duck; $("vo_duck").checked = d.duck; }
@@ -4906,12 +4933,14 @@ var qrcode = function() {
     $("f_seal").onchange = function () { state.sealWatermark = $("f_seal").checked; updateSealUI(); rebuild(); drawAt(posterTime()); scheduleAutosave(); };
     $("f_sealPos").onchange = function () { state.sealPos = $("f_sealPos").value; rebuild(); drawAt(posterTime()); scheduleAutosave(); };
     updateBrandCardUI(); updateGoldframeUI(); updateSealUI();
-    $("f_hook").value = state.hookText; $("f_hookStyle").value = state.hookStyle; $("f_hookPos").value = state.hookPos; $("f_endhook").value = state.endHookText; $("f_capStyle").value = state.capStyle;
+    $("f_hook").value = state.hookText; $("f_hookStyle").value = state.hookStyle; $("f_hookPos").value = state.hookPos; $("f_endhook").value = state.endHookText; $("f_capStyle").value = state.capStyle; $("f_capPos").value = state.capPos; $("f_ltPos").value = state.ltPos;
     $("f_hook").addEventListener("input", function () { state.hookText = $("f_hook").value; rebuild(); scheduleAutosave(); });
     $("f_hookStyle").onchange = function () { state.hookStyle = $("f_hookStyle").value; rebuild(); scheduleAutosave(); };
     $("f_hookPos").onchange = function () { state.hookPos = $("f_hookPos").value; rebuild(); scheduleAutosave(); };
     $("f_endhook").addEventListener("input", function () { state.endHookText = $("f_endhook").value; rebuild(); scheduleAutosave(); });
     $("f_capStyle").onchange = function () { state.capStyle = $("f_capStyle").value; rebuild(); scheduleAutosave(); };
+    $("f_capPos").onchange = function () { state.capPos = $("f_capPos").value; rebuild(); drawAt(posterTime()); scheduleAutosave(); };
+    $("f_ltPos").onchange = function () { state.ltPos = $("f_ltPos").value; rebuild(); drawAt(posterTime()); scheduleAutosave(); };
     updateHookChips();
 
     // voiceover
