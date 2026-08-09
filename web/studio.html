@@ -242,6 +242,34 @@
   .controls section.card .badge.vid{ color:var(--c3); border-color:color-mix(in srgb,var(--c3) 40%, transparent); }
   /* segmented + primary chrome pops */
   .seg button[aria-pressed="true"]{ background:linear-gradient(135deg,#2a3350,#212840); color:#fff; }
+
+  /* ===================== light workspace (default) + dark toggle ===================== */
+  :root{
+    --bg:#EDF0F6; --bg-2:#F8F9FC; --panel:#FFFFFF; --panel-2:#F1F3F9; --line:#E4E8F0; --line-2:#CFD6E3;
+    --ink:#1A1D24; --muted:#59616E; --faint:#8A93A2; --accent:#A9772C; --accent-ink:#FFFFFF; --good:#2F8F5E; --danger:#C6503C;
+  }
+  :root[data-ui="dark"]{
+    --bg:#0C0E14; --bg-2:#131826; --panel:#161C29; --panel-2:#1F2634; --line:#242C3C; --line-2:#354057;
+    --ink:#EEF1F8; --muted:#9CA5B8; --faint:#6A7488; --accent:#C6A15B; --accent-ink:#1a1508; --good:#57B98A; --danger:#D9705A;
+  }
+  body{ background:
+      radial-gradient(1000px 460px at 10% -8%, rgba(124,108,242,.06), transparent 60%),
+      radial-gradient(1000px 480px at 100% 0%, rgba(55,194,166,.05), transparent 55%),
+      var(--bg); }
+  :root[data-ui="dark"] body{ background:
+      radial-gradient(1200px 480px at 12% -8%, rgba(124,108,242,.10), transparent 60%),
+      radial-gradient(1100px 520px at 100% 0%, rgba(55,194,166,.09), transparent 55%),
+      var(--bg); }
+  /* active segmented pill reads correctly in each mode */
+  :root .seg button[aria-pressed="true"]{ background:linear-gradient(135deg,#E9EDF6,#DEE4F0); color:#1A1D24; }
+  :root[data-ui="dark"] .seg button[aria-pressed="true"]{ background:linear-gradient(135deg,#2a3350,#212840); color:#fff; }
+  :root .play{ background:linear-gradient(135deg,#FFFFFF,#EEF1F7); color:#1A1D24; }
+  :root[data-ui="dark"] .play{ background:linear-gradient(135deg,#20263a,#171c2b); color:var(--ink); }
+  /* softer card shadow on light for a crisper, professional feel */
+  :root .controls > section.card{ box-shadow:0 1px 2px rgba(20,25,40,.04), 0 14px 30px -22px rgba(20,25,40,.25); }
+  :root .canvas-wrap{ box-shadow:0 18px 50px -28px rgba(20,25,40,.4); }
+  /* deeper, saturated wordmark so it reads on the light workspace */
+  :root:not([data-ui="dark"]) .brand h1{ background:linear-gradient(95deg,#9A6E2A 0%,#7C57D8 52%,#2E76D0 100%); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
 </style>
 
 <div class="app">
@@ -259,6 +287,7 @@
         <button data-format="square" aria-pressed="false">Square 1:1</button>
         <button data-format="wide" aria-pressed="false">Wide 16:9</button>
       </div>
+      <button class="btn ghost" id="uiToggle" title="Switch light / dark workspace" aria-label="Toggle workspace theme">&#9790; Dark</button>
       <button class="btn ghost" id="brandBtn" title="Store your logos, headshot, banner & contact info">&#9881; Brand Kit</button>
       <button class="btn ghost" id="projectsBtn" title="Open saved drafts & finals">&#128193; Projects</button>
       <button class="btn ghost" id="newBtn" title="Start a new project">New</button>
@@ -1011,7 +1040,7 @@
     var s = W / 720, D = 62 * s, m = 34 * s, pos = state.sealPos || "tr";
     var cx = /r/.test(pos) ? W - m - D / 2 : m + D / 2;
     var cy = /t/.test(pos) ? m + D / 2 : H - m - D / 2 - (/b/.test(pos) ? H * 0.02 : 0);
-    var col = (theme().accent) || state.accent || "#C6A15B";
+    var col = "#C6A15B"; // Legacy Properties brand brass, regardless of theme
     ctx.save();
     ctx.translate(cx, cy);
     ctx.shadowColor = "rgba(0,0,0,0.35)"; ctx.shadowBlur = 6 * s;
@@ -2088,6 +2117,14 @@
   }
 
   function init() {
+    // workspace theme (light default; dark available)
+    (function () {
+      var ui = "light"; try { ui = localStorage.getItem("lr_ui") || "light"; } catch (e) {}
+      document.documentElement.setAttribute("data-ui", ui);
+      function upd() { var d = document.documentElement.getAttribute("data-ui") === "dark"; $("uiToggle").innerHTML = d ? "&#9728; Light" : "&#9790; Dark"; }
+      $("uiToggle").onclick = function () { var d = document.documentElement.getAttribute("data-ui") === "dark"; var nv = d ? "light" : "dark"; document.documentElement.setAttribute("data-ui", nv); try { localStorage.setItem("lr_ui", nv); } catch (e) {} upd(); };
+      upd();
+    })();
     setCanvasSize();
     ACCENTS.forEach(function (c) {
       var sw = document.createElement("button"); sw.className = "swatch"; sw.style.background = c; sw.dataset.c = c; sw.title = c;
