@@ -311,6 +311,21 @@
           <button type="button" data-profile="sara" aria-pressed="false" style="flex:1">Sara Cooper</button>
           <button type="button" data-profile="james" aria-pressed="true" style="flex:1">James Beyersdorf</button>
         </div>
+        <label class="field" style="margin-bottom:14px">Legacy Properties brand card
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:4px">
+            <div class="seg" id="brandCardSeg" role="group" aria-label="Brand card placement">
+              <button type="button" data-place="off">Off</button>
+              <button type="button" data-place="intro">Intro</button>
+              <button type="button" data-place="outro" aria-pressed="true">Outro</button>
+              <button type="button" data-place="both">Both</button>
+            </div>
+            <select id="brandCardVariant" style="max-width:140px">
+              <option value="auto">Auto</option>
+              <option value="ink">Ink (dark)</option>
+              <option value="light">Cream (light)</option>
+            </select>
+          </div>
+        </label>
         <div class="fields">
           <label class="field">Name<input type="text" id="f_name" placeholder="James Beyersdorf"></label>
           <label class="field">Title<input type="text" id="f_title" placeholder="Agent"></label>
@@ -551,6 +566,7 @@
   var AUTO_CYCLE = ["push-in","pan-right","pull-out","pan-left","drone-up","push-in","pan-down","ken-burns"];
   var SERIF = 'Georgia, "Times New Roman", serif';
   var SANS = 'system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif';
+  var MONO = 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace';
 
   // ---------------------------------------------------------------- state
   var state = {
@@ -583,7 +599,8 @@
     voVolume: 1.0,
     duck: true,              // lower music under the voiceover
     ttsRate: 1.0,
-    brandProfile: "james" // which saved profile brands this video
+    brandProfile: "james", // which saved profile brands this video
+    brandCard: { placement: "outro", variant: "auto" } // Legacy Properties animated brand card
   };
   var uid = 1;
   function newId() { return "p_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 7); }
@@ -724,6 +741,8 @@
     var T = state.trans;
     var firstImg = state.media.find(function (m) { return m.kind === "image" && m.ready; });
     var lastImg = null; for (var k = state.media.length - 1; k >= 0; k--) { if (state.media[k].kind === "image" && state.media[k].ready) { lastImg = state.media[k]; break; } }
+    var bc = state.brandCard || { placement: "off", variant: "auto" };
+    if (bc.placement === "intro" || bc.placement === "both") segs.push({ type: "brandcard", dur: 2.8, variant: bc.variant });
     if (state.intro) segs.push({ type: "intro", dur: 3.0, bg: firstImg });
     var ii = 0;
     var bi = (state.syncBeats && state.music && state.music.beat) ? state.music.beat.beatInterval : 0;
@@ -741,6 +760,7 @@
       ii++;
     });
     if (state.outro) segs.push({ type: "outro", dur: 3.5, bg: lastImg });
+    if (bc.placement === "outro" || bc.placement === "both") segs.push({ type: "brandcard", dur: 2.8, variant: bc.variant });
 
     // compute start times with crossfade overlap
     var t = 0;
@@ -1126,8 +1146,60 @@
   }
 
   // draw a single segment's content (no cross-seg alpha)
+  // The Legacy Properties animated brand lockup (from the supplied banner),
+  // recreated on canvas so it records into the export. Fonts are approximated
+  // with system serif italic + mono (Google Fonts can't load in the sandbox).
+  function drawBrandCard(seg, local, W, H) {
+    var s = W / 720;
+    var v = (seg.variant === "light")
+      ? { bg: "#F2ECDF", brass: "#8C6E3D", word: "#1B1813", sub: "#7A6F60", inner: "#A6824A" }
+      : { bg: "#1B1813", brass: "#C99E5A", word: "#F2ECDF", sub: "#A89C8A", inner: "#A6824A" };
+    ctx.fillStyle = v.bg; ctx.fillRect(0, 0, W, H);
+    var cl = function (p) { return Math.max(0, Math.min(1, p)); };
+    var sealP = cl(local / 0.9), backP = easeOutBack(sealP);
+    var wordP = smooth(cl((local - 0.35) / 0.8));
+    var subP = smooth(cl((local - 0.75) / 0.8));
+
+    var D = 148 * s, wordSize = 62 * s, subSize = 17 * s, gap1 = 44 * s, gap2 = 28 * s;
+    var blockH = D + gap1 + wordSize + gap2 + subSize, top = (H - blockH) / 2, cx = W / 2;
+    var sealCy = top + D / 2;
+    var wordCy = top + D + gap1 + wordSize * 0.5;
+    var subCy = top + D + gap1 + wordSize + gap2 + subSize * 0.5;
+
+    // seal: two nested diamonds + "LP", rotating/scaling in
+    ctx.save();
+    ctx.translate(cx, sealCy);
+    ctx.globalAlpha = sealP;
+    ctx.rotate((-48 * Math.PI / 180) * (1 - backP));
+    var sc = 0.42 + 0.58 * backP; ctx.scale(sc, sc);
+    ctx.save(); ctx.rotate(Math.PI / 4);
+    ctx.strokeStyle = v.brass; ctx.lineWidth = Math.max(1.4, 1.8 * s); ctx.strokeRect(-D / 2, -D / 2, D, D);
+    ctx.globalAlpha = sealP * 0.5; ctx.strokeStyle = v.inner; ctx.lineWidth = Math.max(1, 1.2 * s);
+    var Di = D - 30 * s; ctx.strokeRect(-Di / 2, -Di / 2, Di, Di);
+    ctx.restore();
+    ctx.globalAlpha = sealP; ctx.fillStyle = v.brass;
+    ctx.font = "italic 500 " + (50 * s) + "px " + SERIF; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText("LP", 0, 2 * s);
+    ctx.restore();
+
+    // wordmark, sliding in from the left
+    ctx.save(); ctx.globalAlpha = wordP; ctx.fillStyle = v.word;
+    ctx.font = "italic 500 " + wordSize + "px " + SERIF; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText("Legacy Properties", cx + (1 - wordP) * (-18 * s), wordCy);
+    ctx.restore();
+
+    // tagline, spaced mono, fading in
+    ctx.save(); ctx.globalAlpha = subP; ctx.fillStyle = v.sub;
+    ctx.font = "400 " + subSize + "px " + MONO; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    var lsp = 0.4 * subSize; if ("letterSpacing" in ctx) ctx.letterSpacing = lsp + "px";
+    ctx.fillText("EVERY HOME HAS A STORY", cx - lsp / 2 + (1 - subP) * (-10 * s), subCy);
+    if ("letterSpacing" in ctx) ctx.letterSpacing = "0px";
+    ctx.restore();
+  }
+
   function drawSeg(seg, local, W, H) {
-    if (seg.type === "intro" || seg.type === "outro") drawCard(seg, local, W, H, seg.type === "intro" ? "intro" : "outro");
+    if (seg.type === "brandcard") drawBrandCard(seg, local, W, H);
+    else if (seg.type === "intro" || seg.type === "outro") drawCard(seg, local, W, H, seg.type === "intro" ? "intro" : "outro");
     else if (seg.type === "video") drawVideo(seg, local, W, H);
     else drawPhoto(seg, local, W, H);
   }
@@ -1569,7 +1641,7 @@
   function setMusicBlob(blob, name) { var ac = ensureAudio(); if (!ac) return Promise.resolve(); return blob.arrayBuffer().then(function (b) { return ac.decodeAudioData(b); }).then(function (audio) { state.music = { buffer: audio, name: name || "music", blob: blob }; try { state.music.beat = analyzeBeats(audio); } catch (e) { state.music.beat = null; } $("musicLabel").textContent = "Music added ✓ — " + (name || ""); updateBeatUI(); }).catch(function () {}); }
 
   // ------------------------------------------------ read/apply settings
-  function settingsObj() { return { format: state.format, theme: state.theme, accent: state.accent, clip: state.clip, trans: state.trans, intro: state.intro, outro: state.outro, musicVol: state.musicVol, bannerMode: state.bannerMode, syncBeats: state.syncBeats, hookText: state.hookText, hookStyle: state.hookStyle, hookPos: state.hookPos, endHookText: state.endHookText, capStyle: state.capStyle, voScript: state.voScript, voVolume: state.voVolume, duck: state.duck, ttsRate: state.ttsRate, brandProfile: state.brandProfile }; }
+  function settingsObj() { return { format: state.format, theme: state.theme, accent: state.accent, clip: state.clip, trans: state.trans, intro: state.intro, outro: state.outro, musicVol: state.musicVol, bannerMode: state.bannerMode, syncBeats: state.syncBeats, hookText: state.hookText, hookStyle: state.hookStyle, hookPos: state.hookPos, endHookText: state.endHookText, capStyle: state.capStyle, voScript: state.voScript, voVolume: state.voVolume, duck: state.duck, ttsRate: state.ttsRate, brandProfile: state.brandProfile, brandCardPlace: state.brandCard.placement, brandCardVariant: state.brandCard.variant }; }
   function setV(id, v) { if (v != null) $(id).value = v; }
   function applySettings(d) {
     if (!d) return;
@@ -1593,6 +1665,9 @@
     if (d.duck != null) { state.duck = d.duck; $("vo_duck").checked = d.duck; }
     if (d.ttsRate != null) { state.ttsRate = d.ttsRate; $("vo_rate").value = d.ttsRate; }
     if (d.brandProfile) { state.brandProfile = d.brandProfile; applyProfile(d.brandProfile); }
+    if (d.brandCardPlace) { state.brandCard.placement = d.brandCardPlace; }
+    if (d.brandCardVariant) { state.brandCard.variant = d.brandCardVariant; }
+    updateBrandCardUI();
     updateHookChips();
   }
   function applyListing(L) { L = L || {}; setV("f_tagline", L.tagline); setV("f_address", L.address); setV("f_city", L.city); setV("f_price", L.price); setV("f_beds", L.beds); setV("f_baths", L.baths); setV("f_sqft", L.sqft); }
@@ -1658,6 +1733,7 @@
     if (p.headshotBlob) setHeadshot(p.headshotBlob); else { state.headshot = null; }
     updateBrandSeg();
   }
+  function updateBrandCardUI() { var seg = $("brandCardSeg"); if (seg) Array.prototype.forEach.call(seg.children, function (b) { b.setAttribute("aria-pressed", b.dataset.place === state.brandCard.placement ? "true" : "false"); }); var sel = $("brandCardVariant"); if (sel) sel.value = state.brandCard.variant; }
   function updateBrandSeg() { var seg = $("brandSeg"); if (!seg) return; Array.prototype.forEach.call(seg.children, function (b) { b.setAttribute("aria-pressed", b.dataset.profile === state.brandProfile ? "true" : "false"); }); }
   function selectBrandProfile(key) { applyProfile(key); rebuild(); drawAt(posterTime()); scheduleAutosave(); setStatus("Branding: " + profile(key).name, "ok"); }
 
@@ -2007,6 +2083,9 @@
     $("montageBtn").onclick = autoMontage;
     Array.prototype.forEach.call($("brandSeg").children, function (btn) { btn.onclick = function () { selectBrandProfile(btn.dataset.profile); }; });
     Array.prototype.forEach.call($("bkProfileSeg").children, function (btn) { btn.onclick = function () { switchEditProfile(btn.dataset.profile); }; });
+    Array.prototype.forEach.call($("brandCardSeg").children, function (btn) { btn.onclick = function () { state.brandCard.placement = btn.dataset.place; updateBrandCardUI(); rebuild(); drawAt(posterTime()); scheduleAutosave(); }; });
+    $("brandCardVariant").onchange = function () { state.brandCard.variant = $("brandCardVariant").value; rebuild(); drawAt(posterTime()); scheduleAutosave(); };
+    updateBrandCardUI();
     $("f_hook").value = state.hookText; $("f_hookStyle").value = state.hookStyle; $("f_hookPos").value = state.hookPos; $("f_endhook").value = state.endHookText; $("f_capStyle").value = state.capStyle;
     $("f_hook").addEventListener("input", function () { state.hookText = $("f_hook").value; rebuild(); scheduleAutosave(); });
     $("f_hookStyle").onchange = function () { state.hookStyle = $("f_hookStyle").value; rebuild(); scheduleAutosave(); };

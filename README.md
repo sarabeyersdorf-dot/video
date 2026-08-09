@@ -79,6 +79,10 @@ The app also includes:
   over the first seconds with a pop / slide / typewriter / word-by-word / bar-wipe
   style, plus an optional closing hook. Per-clip captions now animate in (slide /
   pop / fade) with an accent-bar wipe.
+- **Legacy Properties brand card.** The animated diamond-seal lockup ("LP" ·
+  *Legacy Properties* · "Every Home Has A Story") is recreated on the canvas and
+  can be auto-placed at the **intro, outro, or both** in either the ink (dark) or
+  cream (light) variant — a branded sign-off that records into the export.
 - **One-click multi-format export.** Tick any of Reel 9:16 / Square 1:1 / Wide 16:9
   and Export once — it renders each size in turn and saves all of them, so the same
   listing is ready for Instagram, the feed, and YouTube/MLS without re-editing.

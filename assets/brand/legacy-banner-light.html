@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Legacy Properties — Animated Banner (Option C)</title><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;1,500&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+<style>*{box-sizing:border-box}html,body{margin:0}body{background:#F2ECDF}
+.lp-banner{width:1200px;max-width:100%;height:300px;display:flex;align-items:center;justify-content:center;background:var(--lp-bg)}
+
+.lp-lock{display:inline-flex;align-items:center;gap:26px;line-height:1;text-decoration:none}
+.lp-seal{width:92px;height:92px;flex:none;position:relative}
+.lp-seal i{position:absolute;inset:0;border:1.6px solid var(--lp-brass);transform:rotate(45deg)}
+.lp-seal i.in{inset:14px;border-width:1px;border-color:#A6824A;opacity:.45}
+.lp-seal b{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'Cormorant Garamond',Georgia,serif;font-style:italic;font-weight:500;font-size:32px;letter-spacing:.04em;color:var(--lp-brass)}
+.lp-txt{display:flex;flex-direction:column;align-items:flex-start;gap:12px;overflow:hidden}
+.lp-word{font-family:'Cormorant Garamond',Georgia,serif;font-style:italic;font-weight:500;font-size:58px;letter-spacing:.04em;color:var(--lp-word);white-space:nowrap}
+.lp-sub{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:15px;letter-spacing:.42em;text-transform:uppercase;color:var(--lp-sub);white-space:nowrap}
+.lp-light{--lp-brass:#8C6E3D;--lp-word:#1B1813;--lp-sub:#7A6F60;--lp-bg:#F2ECDF}
+.lp-ink{--lp-brass:#C99E5A;--lp-word:#F2ECDF;--lp-sub:#A89C8A;--lp-bg:#1B1813}
+.lp-anim .lp-seal{opacity:0;animation:lpSeal 7s cubic-bezier(.16,1,.3,1) infinite}
+.lp-anim .lp-word{opacity:0;animation:lpWord 7s cubic-bezier(.16,1,.3,1) infinite}
+.lp-anim .lp-sub{opacity:0;animation:lpSub 7s ease-out infinite}
+@keyframes lpSeal{0%,4%{transform:rotate(-48deg) scale(.42);opacity:0}26%,86%{transform:rotate(0) scale(1);opacity:1}100%{transform:rotate(0) scale(1);opacity:1}}
+@keyframes lpWord{0%,14%{transform:translateX(-16px);opacity:0}36%,86%{transform:translateX(0);opacity:1}100%{transform:translateX(0);opacity:1}}
+@keyframes lpSub{0%,26%{opacity:0;transform:translateX(-12px)}48%,86%{opacity:1;transform:translateX(0)}100%{opacity:1;transform:translateX(0)}}
+@media (prefers-reduced-motion:reduce){.lp-anim .lp-seal,.lp-anim .lp-word,.lp-anim .lp-sub{animation:none;opacity:1;transform:none}}</style></head>
+<body><div class="lp-banner lp-light"><span class="lp-lock lp-anim"><span class="lp-seal"><i></i><i class="in"></i><b>LP</b></span><span class="lp-txt"><span class="lp-word">Legacy Properties</span><span class="lp-sub">Every Home Has A Story</span></span></span></div></body></html>
