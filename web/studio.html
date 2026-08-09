@@ -3592,8 +3592,9 @@ var qrcode = function() {
     ctx.globalAlpha = 0.6; ctx.lineWidth = Math.max(1.4, 1.7 * s); var Di = D - 14 * s; ctx.strokeRect(-Di / 2, -Di / 2, Di, Di);
     ctx.restore();
     ctx.shadowColor = "transparent";
-    ctx.globalAlpha = 0.98; ctx.fillStyle = col; ctx.font = "italic 700 " + (23 * s) + "px " + SERIF;
-    ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("LP", 0, 1 * s);
+    ctx.globalAlpha = 0.98; ctx.fillStyle = col; ctx.strokeStyle = col; ctx.font = "italic 700 " + (24 * s) + "px " + SERIF;
+    ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.lineWidth = Math.max(0.8, 0.9 * s); ctx.lineJoin = "round";
+    ctx.strokeText("LP", 0, 1 * s); ctx.fillText("LP", 0, 1 * s);
     ctx.restore();
   }
 
@@ -3886,20 +3887,24 @@ var qrcode = function() {
     ctx.rotate((-48 * Math.PI / 180) * (1 - backP));
     var sc = 0.42 + 0.58 * backP; ctx.scale(sc, sc);
     ctx.save(); ctx.rotate(Math.PI / 4);
-    ctx.strokeStyle = v.brass; ctx.lineWidth = Math.max(2.4, 3 * s); ctx.strokeRect(-D / 2, -D / 2, D, D);
-    ctx.globalAlpha = sealP * 0.6; ctx.strokeStyle = v.inner; ctx.lineWidth = Math.max(1.6, 1.9 * s);
+    ctx.strokeStyle = v.brass; ctx.lineWidth = Math.max(3.2, 4 * s); ctx.strokeRect(-D / 2, -D / 2, D, D);
+    ctx.globalAlpha = sealP * 0.65; ctx.strokeStyle = v.inner; ctx.lineWidth = Math.max(2.2, 2.6 * s);
     var Di = D - 30 * s; ctx.strokeRect(-Di / 2, -Di / 2, Di, Di);
     ctx.restore();
-    ctx.globalAlpha = sealP; ctx.fillStyle = v.brass;
-    ctx.font = "italic 700 " + (52 * s) + "px " + SERIF; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    ctx.fillText("LP", 0, 2 * s);
+    ctx.globalAlpha = sealP; ctx.fillStyle = v.brass; ctx.strokeStyle = v.brass;
+    ctx.font = "italic 700 " + (54 * s) + "px " + SERIF; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.lineWidth = Math.max(1.4, 1.6 * s); ctx.lineJoin = "round";
+    ctx.strokeText("LP", 0, 2 * s); ctx.fillText("LP", 0, 2 * s);   // faux-bold
     ctx.restore();
 
-    // wordmark — bold, capitalized, sliding in from the left
-    ctx.save(); ctx.globalAlpha = wordP; ctx.fillStyle = v.word;
-    ctx.font = "700 " + (wordSize * 0.92) + "px " + SERIF; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    if ("letterSpacing" in ctx) ctx.letterSpacing = (2 * s) + "px";
-    ctx.fillText("LEGACY PROPERTIES", cx + (1 - wordP) * (-18 * s), wordCy);
+    // wordmark — heavy, capitalized, sliding in from the left
+    ctx.save(); ctx.globalAlpha = wordP; ctx.fillStyle = v.word; ctx.strokeStyle = v.word;
+    ctx.font = "700 " + wordSize + "px " + SERIF; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.lineWidth = Math.max(1.2, 1.4 * s); ctx.lineJoin = "round";
+    if ("letterSpacing" in ctx) ctx.letterSpacing = (3 * s) + "px";
+    var lpwx = cx + (1 - wordP) * (-18 * s);
+    ctx.strokeText("LEGACY PROPERTIES", lpwx, wordCy);   // stroke + fill = extra weight
+    ctx.fillText("LEGACY PROPERTIES", lpwx, wordCy);
     if ("letterSpacing" in ctx) ctx.letterSpacing = "0px";
     ctx.restore();
 
