@@ -486,8 +486,11 @@
         <ul class="items" id="mediaList"></ul>
         <div class="empty" id="mediaEmpty">No clips yet.</div>
         <div class="curate-row" id="curateRow" style="display:none;margin-top:14px;border-top:1px solid var(--line);padding-top:14px">
-          <button class="btn primary" id="curateBtn">&#10024; Auto-curate for me</button>
-          <p class="hint" style="margin-top:8px">Goldframe looks at each photo &amp; clip — brightness, color, detail, sky — and orders them into a story: opens on your strongest establishing shot, keeps the flow varied, ends on a hero frame, and sets the camera motion &amp; transition for you. Reorder anything afterward by dragging.</p>
+          <div style="display:flex;gap:9px;flex-wrap:wrap">
+            <button class="btn primary" id="curateBtn">&#10024; Auto-curate for me</button>
+            <button class="btn ghost" id="recutBtn">&#128256; Try another cut</button>
+          </div>
+          <p class="hint" style="margin-top:8px">Goldframe looks at each photo &amp; clip — brightness, color, detail, sky — and orders them into a story: opens on your strongest establishing shot, keeps the flow varied, ends on a hero frame, and sets the camera motion &amp; transition for you. <b>Try another cut</b> reshuffles into a fresh variation. Reorder anything afterward by dragging.</p>
         </div>
       </section>
 
@@ -4517,18 +4520,33 @@ var qrcode = function() {
       } catch (e) { return null; }
     });
   }
-  function curate() {
+  var cutN = 0;
+  // Weighted-random pick from the top-K by a score key (rank-weighted), so
+  // "Try another cut" explores strong-but-different openers/heroes each time.
+  function pickTop(list, keyFn, k) {
+    var sorted = list.slice().sort(function (a, b) { return keyFn(b) - keyFn(a); });
+    var top = sorted.slice(0, Math.min(k, sorted.length));
+    var weights = top.map(function (_, i) { return top.length - i; });
+    var sum = weights.reduce(function (a, b) { return a + b; }, 0), r = Math.random() * sum, acc = 0;
+    for (var i = 0; i < top.length; i++) { acc += weights[i]; if (r <= acc) return top[i]; }
+    return top[0];
+  }
+  function curate(regen) {
     var items = state.media.filter(function (m) { return m.ready; });
     if (items.length < 2) { setStatus("Add at least two photos or clips, then Auto-curate.", "err"); return; }
-    var btn = $("curateBtn"); btn.disabled = true;
+    var haveFeats = items.every(function (m) { return m.feat; });
+    var cbtn = $("curateBtn"), rbtn = $("recutBtn");
+    if (regen && haveFeats) { buildCut(items); return; }        // instant re-cut, no re-analysis
+    cbtn.disabled = true; if (rbtn) rbtn.disabled = true;
     setStatus("Auto-curating — analyzing " + items.length + " clips…");
     var i = 0;
     (function step() {
       if (i < items.length) { analyzeClip(items[i]).then(function (f) { items[i].feat = f || { lum: .5, warm: 0, colorful: .3, detail: .3, sky: 0, wide: 1 }; i++; step(); }); return; }
-      finishCurate(items); btn.disabled = false;
+      cbtn.disabled = false; if (rbtn) rbtn.disabled = false; buildCut(items);
     })();
   }
-  function finishCurate(items) {
+  function buildCut(items) {
+    cutN++;
     var clamp01 = function (x) { return Math.max(0, Math.min(1, x)); };
     items.forEach(function (m) {
       var f = m.feat, vidBoost = m.kind === "video" ? 0.18 : 0;
@@ -4536,37 +4554,37 @@ var qrcode = function() {
       f.hero = 0.40 * f.colorful + 0.25 * (f.warm * 0.5 + 0.5) + 0.20 * f.lum + 0.15 * f.sky;
     });
     var pool = items.slice();
-    // opener = strongest establishing shot
-    pool.sort(function (a, b) { return b.feat.establish - a.feat.establish; });
-    var opener = pool.shift();
-    // finale = strongest hero frame among the rest (needs 2+ left to reserve one)
+    // opener = a strong establishing shot (randomized among the top few)
+    var opener = pickTop(pool, function (m) { return m.feat.establish; }, 3);
+    pool = pool.filter(function (m) { return m !== opener; });
+    // finale = a strong hero frame among the rest (reserve one when 2+ remain)
     var finale = null;
-    if (pool.length >= 2) { var byHero = pool.slice().sort(function (a, b) { return b.feat.hero - a.feat.hero; }); finale = byHero[0]; pool = pool.filter(function (m) { return m !== finale; }); }
-    // middle = greedy for variety without harsh brightness jumps
+    if (pool.length >= 2) { finale = pickTop(pool, function (m) { return m.feat.hero; }, 3); pool = pool.filter(function (m) { return m !== finale; }); }
+    // middle = greedy variety without harsh brightness jumps, with a little
+    // randomness so successive cuts differ
     var dist = function (a, b) { var A = a.feat, B = b.feat; return Math.abs(A.lum - B.lum) + Math.abs(A.colorful - B.colorful) + 0.5 * Math.abs(A.warm - B.warm) + Math.abs(A.detail - B.detail) + 0.5 * Math.abs(A.sky - B.sky); };
     var ordered = [opener], prev = opener;
     while (pool.length) {
-      var best = 0, bestScore = -1e9;
-      for (var k = 0; k < pool.length; k++) {
-        var jump = Math.max(0, Math.abs(pool[k].feat.lum - prev.feat.lum) - 0.4);
-        var sc = dist(prev, pool[k]) - 0.6 * jump;
-        if (sc > bestScore) { bestScore = sc; best = k; }
-      }
-      prev = pool.splice(best, 1)[0]; ordered.push(prev);
+      var scored = pool.map(function (m, idx) {
+        var jump = Math.max(0, Math.abs(m.feat.lum - prev.feat.lum) - 0.4);
+        return { idx: idx, sc: dist(prev, m) - 0.6 * jump };
+      }).sort(function (a, b) { return b.sc - a.sc; });
+      var choose = scored[Math.floor(Math.random() * Math.min(2, scored.length))];  // top-2 pick
+      prev = pool.splice(choose.idx, 1)[0]; ordered.push(prev);
     }
     if (finale) ordered.push(finale);
-    // assign motion + pacing
-    var panFlip = false, clip = state.clip;
+    // assign motion + pacing (with light variation)
+    var panFlip = Math.random() < 0.5, clip = state.clip;
     ordered.forEach(function (m, k) {
       m.dur = null;
       if (m.kind === "video") return;                 // videos play; leave motion "still"
       var f = m.feat, mo;
       if (m === opener) mo = f.sky > 0.25 ? "drone-up" : "push-in";
-      else if (m === finale) mo = "pull-out";
+      else if (m === finale) mo = f.sky > 0.3 ? "drone-up" : "pull-out";
       else if (f.wide > 1.25) { mo = panFlip ? "pan-left" : "pan-right"; panFlip = !panFlip; }
       else if (f.wide < 0.82) mo = "pan-up";
-      else if (f.detail > 0.30) mo = "push-in";
-      else mo = (k % 2) ? "ken-burns" : "push-in";
+      else if (f.detail > 0.30) mo = (Math.random() < 0.5 ? "push-in" : "ken-burns");
+      else mo = (Math.random() < 0.5 ? "ken-burns" : "push-in");
       m.motion = mo;
       if (m === opener || m === finale) m.dur = Math.round(clip * 1.25 * 10) / 10;   // linger on the bookends
     });
@@ -4578,8 +4596,7 @@ var qrcode = function() {
     var rest = state.media.filter(function (m) { return ordered.indexOf(m) < 0; });
     state.media = ordered.concat(rest);
     renderList(); rebuild(); drawAt(posterTime()); scheduleAutosave();
-    var oName = (opener.name || "opener");
-    setStatus("Auto-curated " + ordered.length + " clips — opened on your strongest establishing shot, ordered for flow, " + (finale ? "ended on a hero frame, " : "") + "set camera motion and a " + (beatSync ? "beat-synced cut" : "0.5s crossfade") + ". Drag to fine-tune.", "ok");
+    setStatus("Cut #" + cutN + " — " + ordered.length + " clips, opened on an establishing shot" + (finale ? ", ended on a hero frame" : "") + ", " + (beatSync ? "beat-synced cuts" : "0.5s crossfades") + ". “Try another cut” for a fresh take, or drag to fine-tune.", "ok");
   }
 
   // ---------------------------------------------------------------- export
@@ -5262,7 +5279,8 @@ var qrcode = function() {
     $("f_sync").checked = state.syncBeats;
     $("f_sync").onchange = function () { state.syncBeats = $("f_sync").checked; rebuild(); scheduleAutosave(); };
     $("montageBtn").onclick = autoMontage;
-    $("curateBtn").onclick = curate;
+    $("curateBtn").onclick = function () { curate(false); };
+    $("recutBtn").onclick = function () { curate(true); };
     Array.prototype.forEach.call($("brandSeg").children, function (btn) { btn.onclick = function () { selectBrandProfile(btn.dataset.profile); }; });
     Array.prototype.forEach.call($("bkProfileSeg").children, function (btn) { btn.onclick = function () { switchEditProfile(btn.dataset.profile); }; });
     Array.prototype.forEach.call($("brandCardSeg").children, function (btn) { btn.onclick = function () { state.brandCard.placement = btn.dataset.place; updateBrandCardUI(); rebuild(); drawAt(posterTime()); scheduleAutosave(); }; });
