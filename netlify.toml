@@ -1,0 +1,36 @@
+# Netlify deploy config for the Goldframe web app.
+#
+# On every push to the connected branch, Netlify runs the build command
+# (which regenerates dist/index.html from web/_app.html) and publishes dist/.
+
+[build]
+  command = "node scripts/build-web.mjs"
+  publish = "dist"
+
+# Node built-ins only — skip Playwright's browser download during install.
+[build.environment]
+  PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD = "1"
+  NODE_VERSION = "20"
+
+# Single-page app: serve index.html for any path.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Always revalidate the HTML so new deploys show up immediately.
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+# Reasonable default security headers. No Content-Security-Policy here on
+# purpose — the app relies on its own inline script/style, blob: media, the
+# canvas/MediaRecorder pipeline, and (with the user's permission) getUserMedia
+# for mic voiceover; a restrictive CSP would break those.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    X-Frame-Options = "SAMEORIGIN"
