@@ -7,3 +7,4 @@ listing/
 # Rendered videos and per-project assets/photos are not committed
 *.mp4
 !templates/**
+dist/

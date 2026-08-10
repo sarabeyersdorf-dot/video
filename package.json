@@ -29,7 +29,8 @@
   },
   "scripts": {
     "start": "node bin/reel.js",
-    "demo": "node bin/reel.js demo"
+    "demo": "node bin/reel.js demo",
+    "build:web": "node scripts/build-web.mjs"
   },
   "dependencies": {
     "commander": "^12.1.0"
