@@ -90,7 +90,14 @@ You have two routes. **Route A is what you want for yourself and your team.**
    `https://goldframe.netlify.app`). That stops *other websites* using your key
    from a visitor's browser. It's a browser rule, so it doesn't stop someone who
    already has the passcode — which is why the passcode matters more.
-5. **Deploys → Trigger deploy → Deploy site.**
+5. **Deploys → Trigger deploy → Deploy project.**
+
+> **Changing either of these later needs a redeploy.** Saving a new value in
+> Netlify does not change the copy the live function is already running — it
+> keeps using the value it started with until a new deploy replaces it. So after
+> you edit `GF_TEAM_CODE` or `GF_FAL_KEY`, always trigger a deploy, then check
+> the old value no longer works. This bites people rotating a passcode after a
+> leak, when believing it changed is worse than knowing it hasn't.
 
 **Step 3. Tell your team the passcode.**
 
