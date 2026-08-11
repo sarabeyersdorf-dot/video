@@ -99,6 +99,73 @@ The app also includes:
 > so for a permanent library use the downloaded/hosted copy of `web/studio.html`,
 > or keep projects with **Projects → Export**.
 
+### AI Studio ✨
+
+A panel that does the fiddly parts for you. **Everything marked FREE runs inside
+your own browser** — no key, no account, no bill, nothing uploaded.
+
+**Free, on your computer**
+
+- **Polish this whole listing** — one button: fixes exposure and colour on every
+  photo, captions each one, and orders them into a story.
+- **Fix exposure & colour** — measures the photo, then lifts the shadows, holds
+  the highlights, neutralises the colour cast from indoor bulbs and adds a
+  gentle S-curve. A real correction, not a filter.
+- **Smart crop to frame** — turning a wide photo into a tall reel throws away two
+  thirds of the width; this works out *which* third to keep from edge energy,
+  depth and what the objects actually are.
+- **Replace the sky** — finds the sky with a small on-device segmentation model
+  (so it follows a roofline properly) and paints in blue, bright, sunset or dusk.
+- **3D depth move** — estimates a depth map, slices the photo into layers, and
+  moves the near ones further than the far ones. A genuine push *through* a room
+  rather than a zoom into a picture of one, recorded to a real clip. This is the
+  thing the paid websites charge for, and here it costs nothing.
+- **Captions, narration script and social post** written from your listing.
+
+**Paid, when you want the models that can't fit on a laptop**
+
+- **Furnish an empty room** (~2¢/photo), **restyle** existing furniture,
+  **remove clutter**, **add people to a shot**, **change a sky**.
+- **AI video clips** — real generative motion from one photo: moving water,
+  drifting clouds, a true drone rise. From 25¢ for a five-second clip.
+- **Real AI narration** mixed straight into the export, with the music ducking
+  underneath. (~2¢ for a 30-second script.)
+
+Every paid action shows the price and waits for a yes. There's a daily spending
+limit, set to $10 out of the box. A whole listing done properly runs about $1.20.
+
+All paid features go through **one** account — [fal.ai](https://fal.ai) — which
+fronts Kling, Veo, Seedance, Wan, Luma, FLUX, Gemini/Nano-Banana and ElevenLabs.
+One key, one bill, and swapping model is one line in the catalog.
+
+**Disclosure is built in, not bolted on.** California AB 723 (in force since
+1 January 2026) requires materially altered listing images to be labelled with
+the original kept reachable — and most MLSs want a watermark on top. Goldframe
+burns the label (`VIRTUALLY STAGED` / `DIGITALLY ALTERED` / `AI-GENERATED
+MOTION`) into the picture itself so it survives every repost, always keeps your
+original for one-click undo, writes the MLS remarks line, and exports a dated
+record of every AI change and which model made it. Grading and cropping are
+enhancements under the statute and are correctly left alone.
+
+**Music library.** Goldframe writes its own. Describe a track and get it in about
+ten seconds for a penny, or build a forty-track starter pack — eight each of
+Luxury, Warm, Modern, Upbeat and Ambient — for under a dollar. Tracks are kept in
+your browser and can be exported as a pack for the whole team.
+
+This is deliberate rather than lazy. Nearly every "royalty-free" music site
+grants a **sync** licence (put this in *your* video) and not a **distribution**
+licence (put this in *your product* for *other people* to use). Pixabay forbids
+distributing content "on a Standalone basis", Mixkit forbids making an item
+"available to any third party", Uppbeat allows use "only in material published by
+yourself", and Bensound explicitly bans use in "software that produces or
+generates videos" — which is this app. A download button is not a licence.
+Generating our own sidesteps all of it: no attribution, no credit line in the
+export, and no third party who can withdraw the library.
+
+**Setup takes about five minutes** and is written out step by step in
+[`docs/ai-setup.md`](docs/ai-setup.md) — including how to hold one key for your
+whole team behind a passcode so nobody else ever handles it.
+
 **B. Command-line tool — for power & scale (below)**
 1080p output, batch rendering, the depth-parallax engine, and the pluggable AI
 layer. Best when you make lots of videos or want the highest quality.

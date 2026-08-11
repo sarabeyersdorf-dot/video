@@ -6,11 +6,20 @@
 [build]
   command = "node scripts/build-web.mjs"
   publish = "dist"
+  functions = "netlify/functions"
 
 # Node built-ins only — skip Playwright's browser download during install.
 [build.environment]
   PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD = "1"
   NODE_VERSION = "20"
+
+# The AI proxy must be matched BEFORE the catch-all below, or the single-page
+# rule would swallow it and every AI request would get the HTML page back.
+[[redirects]]
+  from = "/.netlify/functions/*"
+  to = "/.netlify/functions/:splat"
+  status = 200
+  force = true
 
 # Single-page app: serve index.html for any path.
 [[redirects]]
