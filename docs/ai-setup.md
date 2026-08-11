@@ -111,7 +111,73 @@ always on your fal.ai dashboard.
 
 ---
 
-## 4. The disclosure rules — read this part
+## 4. Music — and why Goldframe makes its own
+
+There's a **Music library** panel under the Music card. It starts empty. Two
+buttons fill it:
+
+- **Write it** — describe a track ("warm acoustic guitar, unhurried, family
+  home"), pick a length, and about ten seconds later it's in your library and
+  set as the music for the video you're working on. Roughly **one cent** for a
+  minute.
+- **Build all forty** — generates a whole starter pack: eight tracks each of
+  Luxury, Warm, Modern, Upbeat and Ambient. Takes about ten minutes and costs
+  **under a dollar**. You can stop it and pick it up later; tracks you already
+  have are skipped.
+
+Tracks live in your browser and are yours. No credit line, no attribution in the
+export, nobody who can switch them off.
+
+### Why not just download free music from a stock site?
+
+Because almost every "royalty-free" site gives you a **sync** licence — you may
+put the track in *your* video — and not a **distribution** licence — you may put
+the track in *your product* so *other people* can use it. Goldframe gets shared
+with clients and other agents, so it needs the second one.
+
+These all say no, in writing:
+
+| Site | Their words |
+| --- | --- |
+| Pixabay | "cannot sell or distribute the Content… on a Standalone basis" |
+| Mixkit | may not "make any item available to any third party" |
+| Uppbeat | "you may use the Content only in material published by yourself" |
+| Bensound | bans use in "software that produces or generates videos" — this app |
+| YouTube Audio Library | standard tracks are "restricted to YouTube videos" |
+
+A download button on a website is a delivery mechanism, not a licence. This
+catches people out constantly, and it is exactly the kind of thing that surfaces
+years later when a listing video gets popular.
+
+**What you can still do:** download a track from any of those sites and drop it
+into the Music panel yourself, for a video *you* publish. That's what their
+licences allow, and the links in the Music panel are there for that. What
+Goldframe won't do is bundle their catalogue and hand it to other people.
+
+### Sharing one library with your whole team
+
+By default each person builds their own. To give everyone the same library:
+
+1. Build the pack once, then click **Download pack**. You get a zip containing
+   the tracks, a `library.json`, and a `MUSIC_LICENSES.md` record of what was
+   generated and how.
+2. Hand that zip to Claude in a session with the repo attached, and ask for it to
+   be committed to `web/music/`.
+
+After that the tracks appear for everyone who opens the site, marked *team*, with
+nothing for them to set up.
+
+### One honest note on copyright
+
+The US Copyright Office holds that purely AI-generated material isn't protected
+by copyright — so nobody owns these tracks, including you. That sounds worse than
+it is: you don't need to *own* the music, you need the right to *use* it, and
+unprotected material carries no rights for anyone to assert against you. Your
+finished video, with your photos and your edit, is still your own work.
+
+---
+
+## 5. The disclosure rules — read this part
 
 **California AB 723 has been in force since 1 January 2026.** If a listing image
 is changed to *add, remove or alter a physical element* — furniture, a sky,
@@ -147,7 +213,7 @@ rules.*
 
 ---
 
-## 5. Which model should I pick?
+## 6. Which model should I pick?
 
 The defaults are chosen to be cheap and safe. Change them in **Settings** only if
 you have a reason.
@@ -171,7 +237,7 @@ noticeably warmer for five times the price, and it returns word-by-word timing.
 
 ---
 
-## 6. If something goes wrong
+## 7. If something goes wrong
 
 | What you see | What it means |
 | --- | --- |
@@ -185,7 +251,7 @@ noticeably warmer for five times the price, and it returns word-by-word timing.
 
 ---
 
-## 7. For whoever maintains the code
+## 8. For whoever maintains the code
 
 ```
 web/_app.html            the editor — markup, styles, core script
@@ -197,6 +263,8 @@ web/parts/*.js           the AI layer, loaded in number order
   40-ai-motion           3D depth moves (free) and generative clips (paid)
   50-ai-words-voice      captions, script, social copy, narration
   60-ai-ui               the panel
+  70-ai-music            the music library and its generator
+  80-ai-music-ui         the music panel
 netlify/functions/ai.mjs the key-holding proxy
 scripts/build-web.mjs    builds dist/index.html AND web/studio.html
 scripts/smoke-test.mjs   runs the whole free path in a real browser
