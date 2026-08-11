@@ -147,6 +147,21 @@ original for one-click undo, writes the MLS remarks line, and exports a dated
 record of every AI change and which model made it. Grading and cropping are
 enhancements under the statute and are correctly left alone.
 
+**Music library.** Goldframe writes its own. Describe a track and get it in about
+ten seconds for a penny, or build a forty-track starter pack — eight each of
+Luxury, Warm, Modern, Upbeat and Ambient — for under a dollar. Tracks are kept in
+your browser and can be exported as a pack for the whole team.
+
+This is deliberate rather than lazy. Nearly every "royalty-free" music site
+grants a **sync** licence (put this in *your* video) and not a **distribution**
+licence (put this in *your product* for *other people* to use). Pixabay forbids
+distributing content "on a Standalone basis", Mixkit forbids making an item
+"available to any third party", Uppbeat allows use "only in material published by
+yourself", and Bensound explicitly bans use in "software that produces or
+generates videos" — which is this app. A download button is not a licence.
+Generating our own sidesteps all of it: no attribution, no credit line in the
+export, and no third party who can withdraw the library.
+
 **Setup takes about five minutes** and is written out step by step in
 [`docs/ai-setup.md`](docs/ai-setup.md) — including how to hold one key for your
 whole team behind a passcode so nobody else ever handles it.
