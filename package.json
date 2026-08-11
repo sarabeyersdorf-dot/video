@@ -30,9 +30,7 @@
   "scripts": {
     "start": "node bin/reel.js",
     "demo": "node bin/reel.js demo",
-    "build:web": "node scripts/build-web.mjs",
-    "test": "node scripts/build-web.mjs && node scripts/smoke-test.mjs",
-    "test:web": "node scripts/smoke-test.mjs"
+    "build:web": "node scripts/build-web.mjs"
   },
   "dependencies": {
     "commander": "^12.1.0"

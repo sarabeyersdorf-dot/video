@@ -7,6 +7,4 @@ listing/
 # Rendered videos and per-project assets/photos are not committed
 *.mp4
 !templates/**
-# ...except the music library, which is part of the app and must ship with it
-!web/music/**
 dist/

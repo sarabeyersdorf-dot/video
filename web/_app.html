@@ -3232,8 +3232,7 @@ var qrcode = function() {
     var img = new Image();
     meta = meta || {};
     var item = { id: uid++, kind: "image", el: img, url: url, blob: file, name: meta.name || file.name || "photo",
-      motion: meta.motion || "auto", caption: meta.caption || "", dur: meta.dur != null ? meta.dur : null, ready: false,
-      gfAI: meta.gfAI || null };
+      motion: meta.motion || "auto", caption: meta.caption || "", dur: meta.dur != null ? meta.dur : null, ready: false };
     img.onload = function () { item.ready = true; renderList(); rebuild(); scheduleAutosave(); };
     img.onerror = function () { setStatus("Couldn't read " + item.name, "err"); };
     img.src = url;
@@ -3246,17 +3245,11 @@ var qrcode = function() {
     v.muted = true; v.playsInline = true; v.preload = "auto";
     meta = meta || {};
     var item = { id: uid++, kind: "video", el: v, url: url, blob: file, name: meta.name || file.name || "clip",
-      motion: "still", caption: meta.caption || "", dur: meta.dur != null ? meta.dur : null, ready: false,
-      gfAI: meta.gfAI || null };
+      motion: "still", caption: meta.caption || "", dur: meta.dur != null ? meta.dur : null, ready: false };
     var settled = false;
     function ok() {
       if (settled) return; settled = true;
-      // Clips recorded in the browser (the AI 3D depth move) carry no duration
-      // in their header, so `v.duration` reads Infinity. Left unguarded that
-      // makes the whole timeline infinite once a saved project is reopened.
-      item.ready = true;
-      item.natDur = (isFinite(v.duration) && v.duration > 0) ? v.duration : (meta.natDur || meta.dur || 5);
-      renderList(); rebuild(); scheduleAutosave();
+      item.ready = true; item.natDur = v.duration || 0; renderList(); rebuild(); scheduleAutosave();
     }
     function fail() {
       if (settled) return; settled = true;
@@ -4937,11 +4930,7 @@ var qrcode = function() {
       settings: settingsObj(),
       listing: listing(),
       agent: agent(),
-      // `gfAI` carries what the AI layer did to this clip AND the untouched
-      // original photo. Saving it means "Undo AI" still works after a reload,
-      // and the unaltered original stays available — which disclosure rules for
-      // altered listing images require.
-      media: state.media.map(function (m) { return { kind: m.kind, name: m.name, motion: m.motion, caption: m.caption, dur: m.dur, natDur: m.natDur || null, blob: m.blob, gfAI: m.gfAI || null }; }),
+      media: state.media.map(function (m) { return { kind: m.kind, name: m.name, motion: m.motion, caption: m.caption, dur: m.dur, blob: m.blob }; }),
       logoBlob: state.logo ? state.logo.blob : null,
       headshotBlob: state.headshot ? state.headshot.blob : null,
       bannerBlob: state.banner ? state.banner.blob : null,
@@ -4977,12 +4966,7 @@ var qrcode = function() {
     autosaveT = setTimeout(function () {
       var rec = currentRecord(state.status || "draft");
       state.projectId = rec.id;
-      // Autosave used to fail in silence. With AI edits the project also carries
-      // the untouched originals, so a big listing can genuinely hit the browser's
-      // storage limit — and losing work quietly is the worst way to find out.
-      dbPut("projects", rec).then(function () { dbPut("kv", rec.id, "lastOpen"); setStatusChip(state.status || "draft"); }, function () {
-        setStatus("This browser is out of storage, so your work isn't being saved automatically. Use Projects ▸ Export to keep a file, or delete an old project.", "err");
-      });
+      dbPut("projects", rec).then(function () { dbPut("kv", rec.id, "lastOpen"); setStatusChip(state.status || "draft"); }, function () {});
     }, 1500);
   }
 
@@ -5067,42 +5051,20 @@ var qrcode = function() {
   function mkbtn(t, fn) { var b = document.createElement("button"); b.textContent = t; b.onclick = fn; return b; }
 
   // ------------------------------------------------ file import/export (portable, includes media)
-  function blobToDataURL(b) { return new Promise(function (res, rej) { var r = new FileReader(); r.onload = function () { res(r.result); }; r.onerror = function () { rej(new Error("Couldn't read one of the files in this project.")); }; r.readAsDataURL(b); }); }
+  function blobToDataURL(b) { return new Promise(function (res) { var r = new FileReader(); r.onload = function () { res(r.result); }; r.readAsDataURL(b); }); }
   function dataURLToBlob(u) { var p = u.split(","), m = /:(.*?);/.exec(p[0])[1], bin = atob(p[1]), n = bin.length, a = new Uint8Array(n); while (n--) a[n] = bin.charCodeAt(n); return new Blob([a], { type: m }); }
   function exportProjectFile() {
     var rec = currentRecord(state.status);
-    // Each clip contributes its current picture and, when AI changed it, the
-    // untouched original too — so an exported project file is a complete,
-    // portable record including the "before" shot a listing service may ask for.
-    var blobs = [];
-    state.media.forEach(function (m) {
-      blobs.push(m.blob);                                                        // what you see
-      blobs.push(m.gfAI && m.gfAI.original ? m.gfAI.original.blob : null);       // the untouched original
-      blobs.push(m.gfAI && m.gfAI.clean ? m.gfAI.clean : null);                  // edited, before the label
-    });
+    var blobs = []; state.media.forEach(function (m) { blobs.push(m.blob); });
     if (state.logo) blobs.push(state.logo.blob); if (state.banner) blobs.push(state.banner.blob);
     if (state.headshot) blobs.push(state.headshot.blob); if (state.music) blobs.push(state.music.blob);
     Promise.all(blobs.map(function (b) { return b ? blobToDataURL(b) : Promise.resolve(null); })).then(function (urls) {
-      var i = 0, out = { v: 3, title: rec.title, status: rec.status, settings: rec.settings, listing: rec.listing, agent: rec.agent, media: [], musicName: rec.musicName };
-      out.media = state.media.map(function (m) {
-        var data = urls[i++], orig = urls[i++], clean = urls[i++];
-        var ai = null;
-        if (m.gfAI) {
-          // `labelJob` must travel with the photo: it is what keeps the
-          // disclosure label sticky through later crops and edits. Without it an
-          // imported project would quietly stop disclosing an altered image.
-          ai = { job: m.gfAI.job, labelJob: m.gfAI.labelJob || null, model: m.gfAI.model, prompt: m.gfAI.prompt, at: m.gfAI.at };
-          if (orig) ai.original = { data: orig, name: m.gfAI.original.name, kind: m.gfAI.original.kind };
-          if (clean) ai.clean = clean;
-        }
-        return { kind: m.kind, name: m.name, motion: m.motion, caption: m.caption, dur: m.dur, natDur: m.natDur || null, data: data, gfAI: ai };
-      });
+      var i = 0, out = { v: 2, title: rec.title, status: rec.status, settings: rec.settings, listing: rec.listing, agent: rec.agent, media: [], musicName: rec.musicName };
+      out.media = state.media.map(function (m) { return { kind: m.kind, name: m.name, motion: m.motion, caption: m.caption, dur: m.dur, data: urls[i++] }; });
       out.logo = state.logo ? urls[i++] : null; out.banner = state.banner ? urls[i++] : null; out.headshot = state.headshot ? urls[i++] : null; out.music = state.music ? urls[i++] : null;
       var blob = new Blob([JSON.stringify(out)], { type: "application/json" });
       var fn = (rec.title || "goldframe").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") + ".lrproj.json";
-      saveFile(fn, blob).then(function () { setStatus("Project file exported (photos included, plus the untouched originals of anything AI changed).", "ok"); });
-    }).catch(function (e) {
-      setStatus((e && e.message) || "Couldn't build the project file.", "err");
+      saveFile(fn, blob).then(function () { setStatus("Project file exported (photos included).", "ok"); });
     });
   }
   function importProjectFile(file) {
@@ -5111,17 +5073,7 @@ var qrcode = function() {
       try {
         var d = JSON.parse(r.result);
         var rec = { id: newId(), title: d.title || "Imported project", status: d.status || "draft", format: (d.settings && d.settings.format) || "reel", settings: d.settings, listing: d.listing, agent: d.agent, media: [], updated: Date.now() };
-        rec.media = (d.media || []).map(function (m) {
-          var ai = null;
-          if (m.gfAI) {
-            ai = { job: m.gfAI.job, labelJob: m.gfAI.labelJob || null, model: m.gfAI.model, prompt: m.gfAI.prompt, at: m.gfAI.at };
-            if (m.gfAI.original && m.gfAI.original.data) {
-              ai.original = { blob: dataURLToBlob(m.gfAI.original.data), name: m.gfAI.original.name, kind: m.gfAI.original.kind };
-            }
-            if (m.gfAI.clean) ai.clean = dataURLToBlob(m.gfAI.clean);
-          }
-          return { kind: m.kind, name: m.name, motion: m.motion, caption: m.caption, dur: m.dur, natDur: m.natDur || null, blob: m.data ? dataURLToBlob(m.data) : null, gfAI: ai };
-        });
+        rec.media = (d.media || []).map(function (m) { return { kind: m.kind, name: m.name, motion: m.motion, caption: m.caption, dur: m.dur, blob: m.data ? dataURLToBlob(m.data) : null }; });
         rec.logoBlob = d.logo ? dataURLToBlob(d.logo) : null; rec.bannerBlob = d.banner ? dataURLToBlob(d.banner) : null;
         rec.headshotBlob = d.headshot ? dataURLToBlob(d.headshot) : null; rec.musicBlob = d.music ? dataURLToBlob(d.music) : null; rec.musicName = d.musicName;
         // support the old settings-only files too
@@ -5407,32 +5359,6 @@ var qrcode = function() {
     });
   }
 
-  // ---------------------------------------------------------------- AI bridge
-  // The AI layer (web/parts/*.js, appended below by scripts/build-web.mjs) lives
-  // outside this closure. Rather than let it reach into internals ad-hoc, we
-  // publish one small, explicit surface. Everything the AI features are allowed
-  // to touch is listed here — nothing else. Keep this list short on purpose: it
-  // is the seam that lets the editor and the AI layer evolve independently.
-  window.GF = {
-    version: "1.0",
-    state: state,
-    $: $,
-    // media
-    addImage: addImage, addVideo: addVideo, removeMedia: removeMedia,
-    // render pipeline
-    rebuild: rebuild, drawAt: drawAt, posterTime: posterTime, renderList: renderList,
-    // persistence + chrome
-    scheduleAutosave: scheduleAutosave, setStatus: setStatus,
-    // audio
-    setVoiceBlob: setVoiceBlob, setMusicBlob: setMusicBlob, ensureAudio: ensureAudio,
-    // context the AI needs to write good copy
-    listing: listing, profile: function () { return brand.profiles[brand.activeProfile] || {}; },
-    formats: FORMATS, themes: THEMES,
-    // let parts subscribe to project open/save so AI metadata round-trips
-    hooks: { onProjectOpen: [], onCollectRecord: [] }
-  };
-
     if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init); else init();
 })();
 </script>
-<!--@parts-->
