@@ -17,7 +17,7 @@
 //
 // No third-party dependencies: Node built-ins only.
 
-import { readFileSync, writeFileSync, mkdirSync, readdirSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, readdirSync, existsSync, copyFileSync, statSync } from 'node:fs';
 import { dirname, resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -90,6 +90,21 @@ mkdirSync(resolve(ROOT, 'dist'), { recursive: true });
 writeFileSync(resolve(ROOT, 'dist/index.html'), page);
 writeFileSync(resolve(ROOT, 'web/studio.html'), page);
 
+// The shared music library, if one has been built and committed. The app asks
+// for music/library.json at runtime and simply shows an empty library when it
+// isn't there, so this is optional by design.
+let musicNote = '  Music library: none committed (the in-browser one still works)';
+const MUSIC_SRC = resolve(ROOT, 'web/music');
+if (existsSync(MUSIC_SRC)) {
+  const out = resolve(ROOT, 'dist/music');
+  mkdirSync(out, { recursive: true });
+  const names = readdirSync(MUSIC_SRC).filter((f) => statSync(join(MUSIC_SRC, f)).isFile());
+  names.forEach((f) => copyFileSync(join(MUSIC_SRC, f), join(out, f)));
+  const audio = names.filter((f) => /\.(mp3|wav|m4a|ogg)$/i.test(f)).length;
+  musicNote = `  Music library: ${audio} track${audio === 1 ? '' : 's'} copied to dist/music`;
+}
+
 const kb = (page.length / 1024).toFixed(0);
 console.log(`Built dist/index.html and web/studio.html (${kb} KB)`);
 console.log(files.length ? `  AI layer: ${files.join(', ')}` : '  AI layer: (no parts found)');
+console.log(musicNote);

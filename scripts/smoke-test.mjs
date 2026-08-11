@@ -301,6 +301,61 @@ timeline ? ok('the timeline rebuilds') : bad('rebuild threw');
 
 await page.screenshot({ path: join(ROOT, 'dist/smoke.png'), fullPage: false });
 
+// --- music library ----------------------------------------------------------
+console.log('\nMusic library…');
+(await page.$('#musCard')) ? ok('the music library panel is there') : bad('music panel MISSING');
+const musBridge = await page.evaluate(() => ({
+  GFMusic: !!window.GFMusic,
+  starter: window.GFMusic ? window.GFMusic.STARTER.length : 0,
+  cats: window.GFMusic ? window.GFMusic.CATEGORIES.length : 0,
+  setMusic: typeof window.GF.setMusicBlob === 'function'
+}));
+musBridge.GFMusic ? ok('GFMusic loaded') : bad('GFMusic FAILED to load');
+musBridge.starter === 40 ? ok('starter pack defines 40 tracks across ' + musBridge.cats + ' moods') : bad('starter pack has ' + musBridge.starter + ' tracks');
+musBridge.setMusic ? ok('the library can hand a track to the editor') : bad('setMusicBlob not on the bridge');
+
+// a track saved in the browser library survives, previews and loads as music
+const musRound = await page.evaluate(async () => {
+  // a short real WAV so decodeAudioData succeeds
+  const sr = 8000, n = sr, buf = new ArrayBuffer(44 + n * 2), v = new DataView(buf);
+  const w = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+  w(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); w(8, 'WAVEfmt ');
+  v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, sr, true); v.setUint32(28, sr * 2, true); v.setUint16(32, 2, true);
+  v.setUint16(34, 16, true); w(36, 'data'); v.setUint32(40, n * 2, true);
+  for (let i = 0; i < n; i++) v.setInt16(44 + i * 2, Math.sin(i / 8) * 8000, true);
+  const blob = new Blob([buf], { type: 'audio/wav' });
+  await window.GF.setMusicBlob(blob, 'Test Bed');
+  return { loaded: !!(window.GF.state.music && window.GF.state.music.buffer), name: window.GF.state.music && window.GF.state.music.name };
+});
+musRound.loaded ? ok('a library track loads into the video as music ("' + musRound.name + '")') : bad('track did not load as music');
+
+// the money question must fire before any music is generated
+const musPaid = await page.evaluate(async () => {
+  window.GFAI.cfg.ownKey = 'fal-test-not-real'; window.GFAI.save();
+  document.getElementById('musPrompt').value = 'warm acoustic guitar, unhurried';
+  document.getElementById('musMake').click();
+  await new Promise((r) => setTimeout(r, 400));
+  const open = document.getElementById('aiConfirm').classList.contains('open');
+  const cost = document.getElementById('aiCfCost').textContent;
+  document.getElementById('aiConfirm').classList.remove('open');
+  window.GFAI.cfg.ownKey = ''; window.GFAI.save();
+  return { open, cost };
+});
+musPaid.open && /\$|cent/.test(musPaid.cost)
+  ? ok('writing a track asks the price first ("' + musPaid.cost + '")')
+  : bad('music generation did not confirm cost');
+
+// Linking an agent to Pixabay so they can download a track for their OWN video
+// is fine. Bundling or hotlinking someone else's audio into this app is not.
+// This checks for the second, which is the thing that would be an infringement.
+const src = readFileSync(join(ROOT, 'dist/index.html'), 'utf8');
+const hotlinked = (src.match(/https?:\/\/[^"'\s)]+\.(?:mp3|m4a|wav|ogg|aac)\b/gi) || []);
+const competitor = /listingai|mappedby/i.test(src);
+if (competitor) bad('the build references ListingAI / MappedBy — a competitor\'s music library');
+else if (hotlinked.length) bad('the build hotlinks audio files: ' + hotlinked.slice(0, 3).join(', '));
+else ok('no third-party audio is bundled or hotlinked (links to music sites are fine)');
+
 // --- console must be clean --------------------------------------------------
 console.log('\nBrowser console…');
 const real = errors.filter((e) => !/favicon|net::ERR_|Failed to load resource/.test(e));
