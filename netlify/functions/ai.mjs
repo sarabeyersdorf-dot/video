@@ -43,7 +43,8 @@ const ALLOWED = [
   "bytedance/",
   "luma/",
   "xai/",
-  "alibaba/"
+  "alibaba/",
+  "cassetteai/"
 ];
 
 const json = (body, status = 200, extra = {}) =>
