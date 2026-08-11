@@ -71,10 +71,20 @@ You have two routes. **Route A is what you want for yourself and your team.**
    | `GF_FAL_KEY` | the key you copied from fal.ai |
    | `GF_TEAM_CODE` | a passcode you invent — see the warning below |
 
-   **Make the passcode long and random**, like `legacy-7Kq2-vTm9-Rd4x`, not
-   `legacy2026`. Anyone who guesses it can spend money on your fal account. The
-   proxy locks out an address after twelve wrong tries in ten minutes, but a
-   guessable passcode is still a guessable passcode.
+   **The passcode must be long, random, and invented by you.**
+
+   > There is deliberately no example here to copy. An earlier version of this
+   > guide printed a realistic-looking sample passcode, and it got used as a real
+   > one — which put it in this public repository. Netlify's secrets scanner
+   > caught it and refused to publish the site, which is the system working.
+   > Any passcode that has ever appeared in a file, a chat, or a screenshot is
+   > burned and must be replaced.
+
+   A good one is four or five random words joined by dashes, or whatever your
+   password manager generates. Anyone who has it can spend money on your fal
+   account. The proxy locks an address out after twelve wrong tries in ten
+   minutes, but that only slows down guessing — it does not help if the passcode
+   was published.
 
 4. Optionally add `GF_ORIGIN` set to your site's address (e.g.
    `https://goldframe.netlify.app`). That stops *other websites* using your key
