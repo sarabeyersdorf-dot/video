@@ -62,6 +62,16 @@
       { id: "fal-ai/elevenlabs/tts/turbo-v2.5",               name: "ElevenLabs Turbo",   blurb: "Warmer and more human. Fast.",                                        per: "1k chars", price: 0.05, tier: "better", txt: "text",   voices: ["Sarah", "Charlotte", "Matilda", "Brian", "George", "Will"] },
       { id: "fal-ai/elevenlabs/tts/eleven-v3",                name: "ElevenLabs v3",      blurb: "The warmest read money buys, and it returns word-by-word timing.", per: "1k chars", price: 0.10, tier: "best",   txt: "text",   voices: ["Sarah", "Charlotte", "Matilda", "Brian", "George", "Will"] }
     ],
+    /* ---- background music ------------------------------------------------
+       `dur` names the length field and `durUnit` its units, because every
+       music model disagrees about both. Instrumental only — a listing video
+       has a narrator, and vocals fight with them. */
+    music: [
+      { id: "cassetteai/music-generator",            name: "Cassette",       blurb: "Fast and very cheap. The right choice for building a whole library in one go.", per: "minute", price: 0.02, max: 180, tier: "value",  txt: "prompt", dur: "duration",       durUnit: "s"  },
+      { id: "fal-ai/lyria3/pro",                     name: "Lyria 3 Pro",    blurb: "Google's model, trained on licensed music. The best-sounding option, up to 3 minutes.", per: "track", price: 0.08, max: 180, tier: "better", txt: "prompt", dur: null,             durUnit: null },
+      { id: "fal-ai/stable-audio-25/text-to-audio",  name: "Stable Audio",   blurb: "Long instrumental beds with a clear structure.",                              per: "track",  price: 0.20, max: 190, tier: "better", txt: "prompt", dur: "seconds_total",  durUnit: "s"  },
+      { id: "fal-ai/elevenlabs/music",               name: "ElevenLabs",     blurb: "The most controllable, and the most expensive. Worth it for a signature theme.", per: "minute", price: 0.80, max: 600, tier: "best",   txt: "prompt", dur: "music_length_ms", durUnit: "ms" }
+    ],
     /* ---- looking at a photo and writing about it -------------------------- */
     text: [
       { id: "fal-ai/any-llm/vision",                          name: "Vision writer",      blurb: "Looks at each photo, names the room and writes the words.", per: "call", price: 0.003, tier: "value" },
@@ -76,6 +86,7 @@
     peopleModel:"fal-ai/nano-banana-pro/edit",
     ttsModel:   "fal-ai/kokoro/american-english",
     ttsVoice:   "af_heart",
+    musicModel: "cassetteai/music-generator",
     clipSeconds: 5,
     ownKey: "",        // the visitor's own fal key — this browser only
     teamCode: "",      // unlocks Sara's key on the server
@@ -128,12 +139,16 @@
     return null;
   }
   // What will this cost, roughly, before we do it?
+  // `amount` means whatever that model charges by: seconds, characters, or a
+  // count of things. Getting this wrong shows the user a wrong price, so each
+  // unit is spelled out rather than inferred.
   function estimate(task, id, amount) {
     var m = findModel(task, id);
     if (!m) return 0;
     if (m.per === "second") return m.price * (amount || cfg.clipSeconds);
+    if (m.per === "minute") return m.price * ((amount || 60) / 60);   // amount is seconds
     if (m.per === "1k chars") return m.price * ((amount || 0) / 1000);
-    return m.price * (amount || 1);
+    return m.price * (amount || 1);                                   // per image / per track
   }
   function money(usd) {
     if (usd >= 1) return "$" + usd.toFixed(2);

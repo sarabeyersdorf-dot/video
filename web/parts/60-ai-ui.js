@@ -226,6 +226,10 @@
       '    <h3>Which voice</h3>',
       '    <div id="aiTtsModels"></div>',
       '  </div>',
+      '  <div class="ai-group">',
+      '    <h3>Which model writes music</h3>',
+      '    <div id="aiMusicModels"></div>',
+      '  </div>',
       '  <div class="modal-actions">',
       '    <button class="btn primary" id="aiSave">Save</button>',
       '    <button class="btn ghost" id="aiTest">Test the connection</button>',
@@ -296,6 +300,7 @@
     modelPicker("aiEditModels", "edit", "editModel");
     modelPicker("aiPeopleModels", "edit", "peopleModel");
     modelPicker("aiTtsModels", "tts", "ttsModel", fillVoices);
+    modelPicker("aiMusicModels", "music", "musicModel");
   }
 
   function fillVoices() {
@@ -322,6 +327,8 @@
       var el = document.createElement("label");
       el.className = "ai-model" + (window.GFAI.cfg[cfgKey] === m.id ? " sel" : "");
       var unit = m.per === "second" ? ("$" + m.price.toFixed(3).replace(/0+$/, "") + " a second")
+              : m.per === "minute" ? ("$" + m.price.toFixed(2) + " a minute")
+              : m.per === "track" ? ("$" + m.price.toFixed(2) + " a track")
               : m.per === "1k chars" ? ("$" + m.price.toFixed(2) + " per 1,000 characters")
               : ("$" + m.price.toFixed(3).replace(/0+$/, "") + " an image");
       el.innerHTML = "<b>" + m.name + "</b><span>" + m.blurb + "</span><em>" + unit + "</em>";
@@ -740,6 +747,10 @@
     }
     var d = $("aiDisclose"); if (d) d.checked = window.GFAI.cfg.disclose !== false;
   }
+
+  // The music panel spends money too, and it should ask the same way this one
+  // does — one confirmation dialog, one behaviour for the user to learn.
+  window.GFAsk = ask;
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", build);
   else build();
