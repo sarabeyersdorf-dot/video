@@ -383,6 +383,88 @@
 
   /* project status chip + badges in gold, not candy colors */
   .badge.vid, .controls section.card .badge.vid{ color:var(--gold); border-color:color-mix(in srgb, var(--gold) 45%, transparent); }
+/* ===================== Guided setup wizard ===================== */
+.wz-overlay{position:fixed;inset:0;z-index:80;display:none;align-items:center;justify-content:center;
+  padding:20px;background:rgba(14,15,16,.74);backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px)}
+.wz-overlay.open{display:flex;animation:wzFade .25s ease}
+@keyframes wzFade{from{opacity:0}to{opacity:1}}
+.wz-card{position:relative;width:100%;max-width:560px;max-height:calc(100vh - 40px);overflow:auto;
+  background:#1b1d1e;color:#f3eee2;border:1px solid #34383a;border-radius:20px;
+  padding:38px 34px 30px;box-shadow:0 40px 90px -30px rgba(0,0,0,.85);
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;animation:wzRise .3s cubic-bezier(.2,.7,.2,1)}
+@keyframes wzRise{from{opacity:0;transform:translateY(14px) scale(.98)}to{opacity:1;transform:none}}
+.wz-corner{position:absolute;width:26px;height:26px;border:2.5px solid #E0B23C;pointer-events:none}
+.wz-corner.tl{top:14px;left:14px;border-right:0;border-bottom:0;border-top-left-radius:6px}
+.wz-corner.tr{top:14px;right:14px;border-left:0;border-bottom:0;border-top-right-radius:6px}
+.wz-corner.bl{bottom:14px;left:14px;border-right:0;border-top:0;border-bottom-left-radius:6px}
+.wz-corner.br{bottom:14px;right:14px;border-left:0;border-top:0;border-bottom-right-radius:6px}
+.wz-x{position:absolute;top:16px;right:20px;z-index:2;background:none;border:0;color:#8b857a;font-size:26px;
+  line-height:1;cursor:pointer;padding:4px}
+.wz-x:hover{color:#f3eee2}
+.wz-progress{display:flex;gap:7px;margin:0 0 22px}
+.wz-progress i{height:4px;flex:1;border-radius:3px;background:#34383a;transition:background .3s}
+.wz-progress i.done{background:#6b5a2c}
+.wz-progress i.active{background:#E0B23C}
+.wz-eyebrow{font-family:ui-monospace,Menlo,monospace;text-transform:uppercase;letter-spacing:.18em;
+  font-size:11px;color:#E0B23C;margin:0 0 10px}
+.wz-h{font-family:Georgia,"Iowan Old Style",serif;font-weight:600;font-size:1.72rem;line-height:1.1;
+  letter-spacing:-.01em;margin:0 0 8px;color:#f7f3ea}
+.wz-sub{margin:0 0 20px;color:#a9a192;font-size:.98rem;line-height:1.55}
+.wz-step{display:none}
+.wz-step.on{display:block;animation:wzFade .25s ease}
+.wz-goals{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media(max-width:520px){.wz-goals{grid-template-columns:1fr}}
+.wz-goal{display:flex;gap:12px;align-items:flex-start;text-align:left;cursor:pointer;
+  background:#212425;border:1px solid #34383a;border-radius:13px;padding:14px 15px;color:#f3eee2;
+  transition:border-color .15s,background .15s,transform .05s}
+.wz-goal:hover{border-color:#5a5140;background:#262a2b}
+.wz-goal:active{transform:translateY(1px)}
+.wz-goal[aria-pressed="true"]{border-color:#E0B23C;background:#26251c;
+  box-shadow:0 0 0 1px #E0B23C inset}
+.wz-goal .ic{font-size:1.35rem;line-height:1;margin-top:1px}
+.wz-goal>span:last-child{display:block}
+.wz-goal .gt{display:block;font-weight:650;font-size:.98rem;margin-bottom:3px}
+.wz-goal .gs{display:block;font-size:.82rem;color:#a9a192;line-height:1.35}
+.wz-drop{border:1.6px dashed #4a4d4f;border-radius:14px;padding:30px 20px;text-align:center;cursor:pointer;
+  transition:border-color .15s,background .15s;background:#1f2223}
+.wz-drop:hover,.wz-drop.over{border-color:#E0B23C;background:#26251c}
+.wz-drop .db{font-weight:650;font-size:1.02rem;margin-top:8px}
+.wz-drop .ds{font-size:.84rem;color:#8b857a;margin-top:3px}
+.wz-count{margin:16px 0 0;font-size:.95rem;color:#a9a192;display:flex;align-items:center;gap:9px}
+.wz-count b{color:#f3eee2;font-variant-numeric:tabular-nums}
+.wz-count .ok{color:#7fb08a}
+.wz-thumbs{display:flex;flex-wrap:wrap;gap:6px;margin-top:14px}
+.wz-thumbs img{width:46px;height:46px;object-fit:cover;border-radius:7px;border:1px solid #34383a}
+.wz-thumbs .more{width:46px;height:46px;border-radius:7px;border:1px solid #34383a;display:flex;
+  align-items:center;justify-content:center;font-size:.8rem;color:#a9a192;background:#212425}
+.wz-seg{display:flex;gap:8px;margin:4px 0 16px}
+.wz-seg button{flex:1;background:#212425;border:1px solid #34383a;color:#f3eee2;border-radius:10px;
+  padding:12px;cursor:pointer;font-size:.95rem;font-weight:600;transition:border-color .15s,background .15s}
+.wz-seg button:hover{border-color:#5a5140}
+.wz-seg button[aria-pressed="true"]{border-color:#E0B23C;background:#26251c;box-shadow:0 0 0 1px #E0B23C inset}
+.wz-note{font-size:.84rem;color:#8b857a;line-height:1.5;margin:2px 0 0}
+.wz-note b{color:#a9a192}
+.wz-ready{text-align:center;padding:8px 0 4px}
+.wz-ready .big{font-family:Georgia,serif;font-size:1.9rem;color:#f7f3ea;margin:6px 0 6px}
+.wz-spin{width:34px;height:34px;border:3px solid #34383a;border-top-color:#E0B23C;border-radius:50%;
+  margin:6px auto 14px;animation:wzSpin .8s linear infinite}
+@keyframes wzSpin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.wz-overlay.open,.wz-card,.wz-step.on{animation:none}.wz-spin{animation-duration:2s}}
+.wz-actions{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:26px}
+.wz-btn{border:1px solid #4a4d4f;background:#212425;color:#f3eee2;border-radius:10px;padding:11px 20px;
+  font-size:.95rem;font-weight:600;cursor:pointer;transition:border-color .15s,background .15s,opacity .15s;
+  font-family:inherit}
+.wz-btn:hover{border-color:#6a6152}
+.wz-btn.primary{background:#E0B23C;color:#1b1d1e;border-color:#E0B23C}
+.wz-btn.primary:hover{background:#eec55a}
+.wz-btn.primary:disabled{opacity:.4;cursor:not-allowed;background:#5a5140;border-color:#5a5140}
+.wz-btn.ghost{background:none;border-color:transparent;color:#8b857a}
+.wz-btn.ghost:hover{color:#f3eee2;border-color:transparent}
+.wz-btn.block{display:block;width:100%;margin-top:10px;padding:13px}
+.wz-launch{display:inline-flex;align-items:center;gap:7px;margin-top:12px;width:100%;justify-content:center;
+  background:linear-gradient(180deg,#26251c,#201f18);border:1px solid #5a5140;color:#E0B23C;
+  border-radius:11px;padding:11px;font-weight:650;font-size:.94rem;cursor:pointer;transition:border-color .15s}
+.wz-launch:hover{border-color:#E0B23C}
 </style>
 
 <div class="app">
@@ -824,6 +906,125 @@
 <input type="file" id="bkIconInput" class="hidden-input" accept="image/*">
 <input type="file" id="bkImportInput" class="hidden-input" accept="application/json,.json">
 <input type="file" id="vo_importInput" class="hidden-input" accept="audio/*">
+
+<!-- ===================== Guided setup wizard ===================== -->
+<div class="wz-overlay" id="wzOverlay" role="dialog" aria-modal="true" aria-label="Guided setup">
+  <div class="wz-card">
+    <span class="wz-corner tl"></span><span class="wz-corner tr"></span>
+    <span class="wz-corner bl"></span><span class="wz-corner br"></span>
+    <button class="wz-x" id="wzClose" aria-label="Close guided setup">&times;</button>
+    <div class="wz-progress" id="wzProgress"><i></i><i></i><i></i><i></i></div>
+
+    <!-- STEP 1 · GOAL -->
+    <section class="wz-step" data-step="1">
+      <p class="wz-eyebrow">Step 1 of 4 · Goal</p>
+      <h2 class="wz-h">What are you making today?</h2>
+      <p class="wz-sub">Pick a goal — Goldframe sets a matching hook, closing line and style. You can change anything afterward.</p>
+      <div class="wz-goals" id="wzGoals">
+        <button class="wz-goal" data-goal type="button" aria-pressed="true"
+          data-hook="JUST LISTED" data-endhook="BOOK A PRIVATE TOUR" data-theme="luxe" data-cta="Schedule a Private Showing" data-tagline="">
+          <span class="ic">&#127968;</span><span><span class="gt">Just Listed</span><span class="gs">Debut a brand-new listing</span></span>
+        </button>
+        <button class="wz-goal" data-goal type="button" aria-pressed="false"
+          data-hook="OPEN HOUSE" data-endhook="SEE YOU THERE" data-theme="modern" data-cta="Sat &amp; Sun · 1&ndash;4 PM" data-tagline="">
+          <span class="ic">&#128682;</span><span><span class="gt">Open House</span><span class="gs">Drive weekend foot traffic</span></span>
+        </button>
+        <button class="wz-goal" data-goal type="button" aria-pressed="false"
+          data-hook="JUST SOLD" data-endhook="THINKING OF SELLING?" data-theme="bold" data-cta="Get your home&rsquo;s value" data-tagline="">
+          <span class="ic">&#128273;</span><span><span class="gt">Just Sold</span><span class="gs">Show off a closed deal</span></span>
+        </button>
+        <button class="wz-goal" data-goal type="button" aria-pressed="false"
+          data-hook="PRICE IMPROVED" data-endhook="SEE IT NOW" data-theme="luxe" data-cta="Book a showing today" data-tagline="">
+          <span class="ic">&#128176;</span><span><span class="gt">Price Improved</span><span class="gs">Re-spark a stale listing</span></span>
+        </button>
+        <button class="wz-goal" data-goal type="button" aria-pressed="false"
+          data-hook="COMING SOON" data-endhook="GET EARLY ACCESS" data-theme="minimal" data-cta="Join the early list" data-tagline="">
+          <span class="ic">&#10024;</span><span><span class="gt">Coming Soon</span><span class="gs">Build anticipation early</span></span>
+        </button>
+        <button class="wz-goal" data-goal type="button" aria-pressed="false"
+          data-hook="" data-endhook="" data-theme="luxe" data-cta="Schedule a Private Showing" data-tagline="">
+          <span class="ic">&#127916;</span><span><span class="gt">Just a great reel</span><span class="gs">No label &mdash; let the home shine</span></span>
+        </button>
+      </div>
+      <div class="wz-actions">
+        <button class="wz-btn ghost" id="wzSkip" type="button">Skip setup</button>
+        <button class="wz-btn primary" data-next type="button">Continue</button>
+      </div>
+    </section>
+
+    <!-- STEP 2 · PHOTOS -->
+    <section class="wz-step" data-step="2">
+      <p class="wz-eyebrow">Step 2 of 4 · Photos</p>
+      <h2 class="wz-h">Add your listing photos.</h2>
+      <p class="wz-sub">Drop in the best 6&ndash;15 shots &mdash; and any drone or walk-through clips. We&rsquo;ll order them into a story for you next.</p>
+      <div class="wz-drop" id="wzDrop" tabindex="0" role="button" aria-label="Add photos or video">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#E0B23C" stroke-width="1.6"><path d="M12 16V4m0 0L8 8m4-4l4 4"/><path d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
+        <div class="db">Drop photos &amp; video here</div>
+        <div class="ds">or click to browse &mdash; JPG, PNG, WEBP, MP4, MOV</div>
+      </div>
+      <div class="wz-count" id="wzCount"><span>No photos yet &mdash; add at least <b>2</b>.</span></div>
+      <div class="wz-thumbs" id="wzThumbs"></div>
+      <div class="wz-actions">
+        <button class="wz-btn ghost" data-back type="button">&larr; Back</button>
+        <button class="wz-btn primary" data-next type="button" id="wzPhotosNext" disabled>Continue</button>
+      </div>
+    </section>
+
+    <!-- STEP 3 · BRAND -->
+    <section class="wz-step" data-step="3">
+      <p class="wz-eyebrow">Step 3 of 4 · Branding</p>
+      <h2 class="wz-h">Whose branding goes on it?</h2>
+      <p class="wz-sub">Your saved headshot, logo, colors and contact details get stamped on the video automatically.</p>
+      <div class="wz-seg" id="wzBrandSeg">
+        <button type="button" data-profile="sara" aria-pressed="false">Sara Cooper</button>
+        <button type="button" data-profile="james" aria-pressed="true">James Beyersdorf</button>
+      </div>
+      <div class="fields" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <label class="wz-note" style="display:block">Name
+          <input type="text" id="wzName" style="width:100%;margin-top:4px;padding:9px 10px;border-radius:9px;border:1px solid #34383a;background:#212425;color:#f3eee2;font-size:.95rem">
+        </label>
+        <label class="wz-note" style="display:block">Phone
+          <input type="text" id="wzPhone" style="width:100%;margin-top:4px;padding:9px 10px;border-radius:9px;border:1px solid #34383a;background:#212425;color:#f3eee2;font-size:.95rem">
+        </label>
+      </div>
+      <p class="wz-note" style="margin-top:14px">Logos &amp; headshots come from your <b>Brand Kit</b> &mdash; fine-tune them there anytime.</p>
+      <div class="wz-actions">
+        <button class="wz-btn ghost" data-back type="button">&larr; Back</button>
+        <button class="wz-btn primary" data-next type="button">Continue</button>
+      </div>
+    </section>
+
+    <!-- STEP 4 · BUILD / READY -->
+    <section class="wz-step" data-step="4">
+      <div id="wzBuild">
+        <p class="wz-eyebrow">Step 4 of 4 · The cut</p>
+        <h2 class="wz-h">Let&rsquo;s build your reel.</h2>
+        <p class="wz-sub">Goldframe reads every photo &mdash; light, color, sky, detail &mdash; and edits them into a story: opens on your strongest shot, keeps the flow varied, ends on a hero frame, and sets the motion for you.</p>
+        <button class="wz-btn primary block" id="wzBuildBtn" type="button">&#10024; Build my reel</button>
+        <div class="wz-actions">
+          <button class="wz-btn ghost" data-back type="button">&larr; Back</button>
+          <span></span>
+        </div>
+      </div>
+      <div id="wzBuilding" style="display:none">
+        <div class="wz-ready">
+          <div class="wz-spin"></div>
+          <p class="wz-sub" style="margin:0">Analyzing your photos and cutting the story&hellip;</p>
+        </div>
+      </div>
+      <div id="wzDone" style="display:none">
+        <div class="wz-ready">
+          <p class="wz-eyebrow" style="text-align:center">Ready to post</p>
+          <div class="big">&#127916; Your reel is ready.</div>
+          <p class="wz-sub" style="max-width:none">Preview it, drag any text to reposition, then export &mdash; or post straight to social.</p>
+        </div>
+        <button class="wz-btn primary block" id="wzExport" type="button">&#9679; Export video</button>
+        <button class="wz-btn block" id="wzPreview" type="button">&#9654; Preview &amp; fine-tune</button>
+        <button class="wz-btn ghost block" id="wzRecut" type="button" style="border-color:transparent">&#128256; Not quite &mdash; try another cut</button>
+      </div>
+    </section>
+  </div>
+</div>
 
 <script>
 /* ===== Embedded QR generator (qrcode-generator by Kazuhiko Arase, MIT) ===== */
@@ -5251,6 +5452,140 @@ var qrcode = function() {
     });
   }
 
+  // ------------------------------------------------ guided setup wizard
+  function initWizard() {
+    var ov = $("wzOverlay"); if (!ov) return;
+    var steps = Array.prototype.slice.call(ov.querySelectorAll(".wz-step"));
+    var dots = Array.prototype.slice.call($("wzProgress").children);
+    var cur = 1, chosenGoal = null;
+
+    function show(n) {
+      cur = n;
+      steps.forEach(function (s) { s.classList.toggle("on", +s.dataset.step === n); });
+      dots.forEach(function (d, i) { d.className = ""; if (i + 1 < n) d.classList.add("done"); if (i + 1 === n) d.classList.add("active"); });
+      if (n === 2) refreshPhotos();
+      if (n === 3) { reflectBrand(); }
+      if (n === 4) { $("wzBuild").style.display = ""; $("wzBuilding").style.display = "none"; $("wzDone").style.display = "none"; }
+      var card = ov.querySelector(".wz-card"); if (card) card.scrollTop = 0;
+    }
+    function open() {
+      try { localStorage.setItem("gf_wizard_seen", "1"); } catch (e) {}
+      ov.classList.add("open"); document.body.style.overflow = "hidden"; show(cur);
+    }
+    function close() { ov.classList.remove("open"); document.body.style.overflow = ""; }
+
+    function setVal(id, v) {
+      var el = $(id); if (!el) return;
+      el.value = v;
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+      el.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+
+    // --- navigation
+    ov.querySelectorAll("[data-next]").forEach(function (b) {
+      b.onclick = function () { if (cur === 1) applyGoalFields(chosenGoal); if (cur < 4) show(cur + 1); };
+    });
+    ov.querySelectorAll("[data-back]").forEach(function (b) {
+      b.onclick = function () { if (cur > 1) show(cur - 1); };
+    });
+    $("wzClose").onclick = close; $("wzSkip").onclick = close;
+    ov.addEventListener("click", function (e) { if (e.target === ov) close(); });
+    document.addEventListener("keydown", function (e) { if (e.key === "Escape" && ov.classList.contains("open")) close(); });
+
+    // --- step 1: goals (preview selection only; fields written on Continue)
+    var goals = Array.prototype.slice.call($("wzGoals").querySelectorAll("[data-goal]"));
+    goals.forEach(function (b) {
+      b.onclick = function () {
+        goals.forEach(function (g) { g.setAttribute("aria-pressed", g === b ? "true" : "false"); });
+        chosenGoal = b;
+      };
+    });
+    chosenGoal = goals[0];
+    function applyGoalFields(b) {
+      if (!b) return;
+      setVal("f_hook", b.getAttribute("data-hook") || "");
+      setVal("f_endhook", b.getAttribute("data-endhook") || "");
+      if (b.getAttribute("data-cta")) setVal("f_cta", b.getAttribute("data-cta"));
+      if (b.getAttribute("data-theme")) setVal("f_theme", b.getAttribute("data-theme"));
+    }
+
+    // --- step 2: photos
+    var drop = $("wzDrop");
+    drop.onclick = function () { $("mediaInput").click(); };
+    drop.onkeydown = function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); $("mediaInput").click(); } };
+    ["dragenter", "dragover"].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.add("over"); }); });
+    ["dragleave", "drop"].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.remove("over"); }); });
+    drop.addEventListener("drop", function (e) { if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) addMediaFiles(e.dataTransfer.files); });
+
+    function refreshPhotos() {
+      var ready = state.media.filter(function (m) { return m.ready; });
+      var r = ready.length, c = $("wzCount"), nx = $("wzPhotosNext");
+      if (r >= 2) { c.innerHTML = '<span class="ok">&#10003;</span> <span><b>' + r + '</b> photos ready &mdash; looking good.</span>'; nx.disabled = false; }
+      else { c.innerHTML = '<span><b>' + r + '</b> of 2 &mdash; add ' + Math.max(0, 2 - r) + ' more photo' + (2 - r === 1 ? '' : 's') + '.</span>'; nx.disabled = true; }
+      var t = $("wzThumbs"); t.innerHTML = "";
+      ready.slice(0, 8).forEach(function (m) {
+        if (m.kind === "image" && m.url) { var img = document.createElement("img"); img.src = m.url; img.alt = ""; t.appendChild(img); }
+        else { var d = document.createElement("div"); d.className = "more"; d.textContent = "▶"; t.appendChild(d); }
+      });
+      if (r > 8) { var mo = document.createElement("div"); mo.className = "more"; mo.textContent = "+" + (r - 8); t.appendChild(mo); }
+    }
+
+    // --- step 3: branding
+    var wzSeg = $("wzBrandSeg");
+    wzSeg.querySelectorAll("[data-profile]").forEach(function (b) {
+      b.onclick = function () {
+        state.brandProfile = b.getAttribute("data-profile");
+        try { brand.activeProfile = state.brandProfile; } catch (e) {}
+        applyBrandKit();
+        reflectBrand();
+      };
+    });
+    $("wzName").addEventListener("input", function () { setVal("f_name", $("wzName").value); });
+    $("wzPhone").addEventListener("input", function () { setVal("f_phone", $("wzPhone").value); });
+    function reflectBrand() {
+      var p = state.brandProfile || (typeof brand !== "undefined" && brand.activeProfile) || "james";
+      wzSeg.querySelectorAll("[data-profile]").forEach(function (x) { x.setAttribute("aria-pressed", x.getAttribute("data-profile") === p ? "true" : "false"); });
+      var ms = $("brandSeg"); if (ms) ms.querySelectorAll("[data-profile]").forEach(function (x) { x.setAttribute("aria-pressed", x.getAttribute("data-profile") === p ? "true" : "false"); });
+      if ($("f_name")) $("wzName").value = $("f_name").value;
+      if ($("f_phone")) $("wzPhone").value = $("f_phone").value;
+    }
+
+    // --- step 4: build the cut
+    $("wzBuildBtn").onclick = function () {
+      var ready = state.media.filter(function (m) { return m.ready; });
+      if (ready.length < 2) { show(2); return; }
+      $("wzBuild").style.display = "none"; $("wzBuilding").style.display = ""; $("wzDone").style.display = "none";
+      curate(false);
+      var tries = 0;
+      (function chk() {
+        tries++;
+        var rdy = state.media.filter(function (m) { return m.ready; });
+        var featd = rdy.length >= 2 && rdy.every(function (m) { return m.feat; });
+        var busy = $("curateBtn") && $("curateBtn").disabled;
+        if ((featd && !busy) || tries > 80) { $("wzBuilding").style.display = "none"; $("wzDone").style.display = ""; return; }
+        setTimeout(chk, 200);
+      })();
+    };
+    $("wzExport").onclick = function () { close(); var e = $("exportBtn"); if (e) { e.scrollIntoView({ behavior: "smooth", block: "center" }); e.click(); } };
+    $("wzPreview").onclick = function () { close(); var p = $("playBtn"); if (p) p.click(); };
+    $("wzRecut").onclick = function () { curate(true); };
+
+    // --- re-entry launcher under the photos drop zone
+    var launcher = document.createElement("button");
+    launcher.type = "button"; launcher.className = "wz-launch"; launcher.id = "wzLaunch";
+    launcher.innerHTML = "&#10024; Guided setup &mdash; build a reel step by step";
+    launcher.onclick = function () { cur = 1; open(); };
+    var md = $("mediaDrop"); if (md && md.parentNode) md.parentNode.insertBefore(launcher, md);
+
+    // keep step 2 live as photos decode
+    setInterval(function () { if (ov.classList.contains("open") && cur === 2) refreshPhotos(); }, 500);
+
+    // auto-open for first-time visitors with an empty canvas
+    var seen = false; try { seen = !!localStorage.getItem("gf_wizard_seen"); } catch (e) {}
+    var hasMedia = state.media.some(function (m) { return m.ready; });
+    if (!seen && !hasMedia) { cur = 1; open(); }
+  }
+
   function init() {
     // workspace theme (light default; dark available)
     (function () {
@@ -5418,6 +5753,7 @@ var qrcode = function() {
       if (lastId) return dbGet("projects", lastId).then(function (rec) { if (rec) { openRecord(rec); return true; } });
     }).catch(function () {}).then(function () {
       booted = true; rebuild(); drawAt(posterTime());
+      initWizard();
     });
   }
 

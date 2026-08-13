@@ -46,6 +46,15 @@ console.log('\nLoading the app…');
 await page.goto(`http://localhost:${PORT}/`, { waitUntil: 'networkidle' });
 await page.waitForTimeout(1200);
 
+// The guided-setup wizard auto-opens for a first-time visitor and covers the
+// app. Mark it seen and close it so the rest of the run can drive the editor.
+await page.evaluate(() => {
+  try { localStorage.setItem('gf_wizard_seen', '1'); } catch (e) {}
+  const ov = document.getElementById('wzOverlay');
+  if (ov) ov.classList.remove('open');
+  document.body.style.overflow = '';
+});
+
 // --- the app itself still boots -------------------------------------------
 for (const [sel, label] of [
   ['#stage', 'the preview canvas'],
