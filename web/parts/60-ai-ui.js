@@ -442,7 +442,7 @@
   // total up front means the user is asked once, about the real number.
   function paid(title, cost, body, run) {
     if (!window.GFAI.ready()) {
-      open("aiSettings");
+      openSettings();   // full setup: populates fields AND wires Save / Test / Close
       window.GF.setStatus("Add a team passcode or your own AI key first — it takes a minute.", "err");
       return;
     }
