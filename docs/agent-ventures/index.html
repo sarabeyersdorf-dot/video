@@ -1,0 +1,434 @@
+<title>Agent Venture Fund</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a fund ledger. Rules up top, a control rail beside the live simulation, then the playbook. */
+:root {
+  --bg: #f3f5f4;
+  --panel: #ffffff;
+  --ink: #15211d;
+  --muted: #5b6863;
+  --line: #d8dfdc;
+  --accent: #1d6b57;
+  --accent-soft: #dcebe5;
+  --loss: #b3461f;
+  --loss-soft: #f5e1d8;
+  --band: rgba(29,107,87,.16);
+  --t1: #1d6b57; --t2: #3b5bab; --t3: #b07a12; --t4: #8a3f8f; --t5: #c0502a;
+  --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #101614; --panel: #18201d; --ink: #e4ece8; --muted: #95a49e; --line: #2b3632;
+  --accent: #5cc0a2; --accent-soft: #1d3a31; --loss: #ee8a62; --loss-soft: #3d2219; --band: rgba(92,192,162,.18);
+  --t1: #5cc0a2; --t2: #8aa6f0; --t3: #e2b44e; --t4: #cf8ad3; --t5: #ee8a62; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #101614; --panel: #18201d; --ink: #e4ece8; --muted: #95a49e; --line: #2b3632;
+  --accent: #5cc0a2; --accent-soft: #1d3a31; --loss: #ee8a62; --loss-soft: #3d2219; --band: rgba(92,192,162,.18);
+  --t1: #5cc0a2; --t2: #8aa6f0; --t3: #e2b44e; --t4: #cf8ad3; --t5: #ee8a62; color-scheme: dark }
+
+* { box-sizing: border-box }
+body { background: var(--bg); color: var(--ink); font: 15px/1.55 var(--body); }
+.wrap { max-width: 1180px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 32px 64px; display: grid; gap: 40px; }
+h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; line-height: 1.15 }
+h1 { font-size: clamp(30px, 5vw, 46px); font-weight: 700; letter-spacing: -.01em }
+h2 { font-size: 24px; font-weight: 700 }
+h3 { font-size: 16px; font-weight: 700 }
+p { margin: 0; max-width: 68ch }
+.eyebrow { font: 500 12px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted) }
+.lede { font-size: 17px; color: var(--muted) }
+header { display: grid; gap: 14px }
+
+.rules { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 10px; overflow: hidden }
+.rule { background: var(--panel); padding: 18px; display: grid; gap: 6px; align-content: start }
+.rule .k { font: 500 12px var(--mono); color: var(--accent) }
+.rule p { font-size: 14px; color: var(--muted) }
+
+.sim { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 24px; align-items: start }
+@media (max-width: 860px) { .sim { grid-template-columns: 1fr } }
+.controls { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 18px; display: grid; gap: 16px }
+.field { display: grid; gap: 6px }
+.field label { font-size: 13px; font-weight: 600; display: flex; justify-content: space-between; gap: 8px }
+.field label output { font: 500 13px var(--mono); color: var(--accent); font-variant-numeric: tabular-nums }
+.field small { color: var(--muted); font-size: 12px; line-height: 1.4 }
+input[type=range] { width: 100%; accent-color: var(--accent) }
+input[type=number] { width: 100%; font: 500 15px var(--mono); padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink) }
+select { width: 100%; font: 14px var(--body); padding: 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink) }
+.check { display: flex; gap: 10px; align-items: flex-start; font-size: 13px }
+.check input { margin-top: 3px; accent-color: var(--accent) }
+button { font: 600 14px var(--body); padding: 10px 14px; border-radius: 6px; border: 1px solid var(--accent); background: var(--accent); color: var(--panel); cursor: pointer }
+button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px }
+.err { color: var(--loss); font-size: 13px }
+
+.results { display: grid; gap: 20px; min-width: 0 }
+.stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px }
+@media (max-width: 640px) { .stats { grid-template-columns: repeat(2, minmax(0, 1fr)) } }
+.stat { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; display: grid; gap: 4px }
+.stat .v { font: 700 24px var(--display); font-variant-numeric: tabular-nums }
+.stat .l { font-size: 12px; color: var(--muted); line-height: 1.35 }
+.stat.good .v { color: var(--accent) } .stat.bad .v { color: var(--loss) }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 18px; display: grid; gap: 12px; min-width: 0 }
+.card-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap }
+.card-head p { font-size: 13px; color: var(--muted) }
+.chart { width: 100%; overflow-x: auto }
+.chart svg { display: block; width: 100%; height: auto; min-width: 480px }
+.chart text { fill: var(--muted); font: 11px var(--mono) }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12px; color: var(--muted) }
+.legend span { display: inline-flex; align-items: center; gap: 6px }
+.legend i { width: 14px; height: 3px; border-radius: 2px; display: inline-block }
+
+.log { max-height: 260px; overflow-y: auto; font: 13px/1.5 var(--mono); display: grid; gap: 2px; font-variant-numeric: tabular-nums }
+.log div { display: grid; grid-template-columns: 54px 1fr; gap: 8px; padding: 3px 0; border-bottom: 1px dashed var(--line) }
+.log .m { color: var(--muted) }
+.pill { display: inline-block; font: 500 11px var(--mono); padding: 1px 7px; border-radius: 99px; margin-right: 6px }
+.pill.kill { background: var(--loss-soft); color: var(--loss) }
+.pill.win { background: var(--accent-soft); color: var(--accent) }
+.pill.info { background: var(--bg); color: var(--muted); border: 1px solid var(--line) }
+
+.tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--panel) }
+table { border-collapse: collapse; width: 100%; min-width: 720px; font-size: 14px }
+th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: top }
+th { font: 500 11px var(--mono); text-transform: uppercase; letter-spacing: .06em; color: var(--muted) }
+td.n { font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap }
+tr:last-child td { border-bottom: 0 }
+.sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 8px; vertical-align: 1px }
+
+.phases { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px }
+.phase { border-top: 3px solid var(--accent); padding-top: 12px; display: grid; gap: 8px; align-content: start }
+.phase ul { margin: 0; padding-left: 18px; font-size: 14px; color: var(--muted); display: grid; gap: 4px }
+.phase .when { font: 500 12px var(--mono); color: var(--muted) }
+.callout { background: var(--loss-soft); border-radius: 10px; padding: 18px; display: grid; gap: 8px }
+.callout h3 { color: var(--loss) }
+.callout ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; font-size: 14px }
+section { display: grid; gap: 16px }
+footer { font-size: 12px; color: var(--muted) }
+</style>
+
+<div class="wrap">
+  <header>
+    <span class="eyebrow">Model · prepared for Sara Cooper</span>
+    <h1>Agent Venture Fund</h1>
+    <p class="lede">You fund a pool. Each AI agent gets a small budget to run one business. Every month the agents that lose money are shut down, their leftover cash goes back to the pool, and the profitable agents get more. Run the simulation below to see how the money behaves before you put real dollars in.</p>
+  </header>
+
+  <div class="rules" aria-label="Fund rules">
+    <div class="rule"><span class="k">Rule 1 · Seed</span><h3>Every agent starts with the same budget</h3><p>Each agent gets a fixed seed to cover AI usage, software and ads. The rest of your money sits in a reserve pool.</p></div>
+    <div class="rule"><span class="k">Rule 2 · Grace</span><h3>New agents get a few months to find customers</h3><p>No one is judged in the first months. After that, they're reviewed monthly.</p></div>
+    <div class="rule"><span class="k">Rule 3 · Shut down</span><h3>Lose money over the review window and you're out</h3><p>An agent whose profit over the last few months is zero or negative, or whose cash runs out, is shut down. Its remaining cash returns to the pool.</p></div>
+    <div class="rule"><span class="k">Rule 4 · Reward</span><h3>Profitable agents get growth money</h3><p>Each month, agents that are past their grace period and making money can draw growth money from the pool, up to what they earned. Optionally, a new agent copies the best performer's playbook.</p></div>
+    <div class="rule"><span class="k">Rule 5 · Pay you</span><h3>Profit above a cushion comes back to you</h3><p>Once an agent holds three months of costs, part of anything beyond that is swept to your account.</p></div>
+  </div>
+
+  <section>
+    <div><span class="eyebrow">Simulation</span><h2>What happens to your money</h2></div>
+    <div class="sim">
+      <form class="controls" id="controls" autocomplete="off">
+        <div class="field">
+          <label for="fund">Total you put in ($)</label>
+          <input type="number" id="fund" min="1000" step="1000" value="20000">
+        </div>
+        <div class="field">
+          <label for="agents">Starting agents <output id="agentsOut">5</output></label>
+          <input type="range" id="agents" min="1" max="10" value="5">
+        </div>
+        <div class="field">
+          <label for="seed">Seed per agent ($)</label>
+          <input type="number" id="seed" min="500" step="250" value="2000">
+          <small id="poolNote"></small>
+        </div>
+        <div class="field">
+          <label for="months">Time horizon</label>
+          <select id="months"><option value="12">12 months</option><option value="24" selected>24 months</option><option value="36">36 months</option></select>
+        </div>
+        <div class="field">
+          <label for="grace">Grace period <output id="graceOut">3 mo</output></label>
+          <input type="range" id="grace" min="1" max="9" value="3">
+        </div>
+        <div class="field">
+          <label for="window">Review window <output id="windowOut">3 mo</output></label>
+          <input type="range" id="window" min="1" max="6" value="3">
+          <small>Profit is added up over this many recent months to decide who stays.</small>
+        </div>
+        <div class="field">
+          <label for="sweep">Profit paid back to you <output id="sweepOut">50%</output></label>
+          <input type="range" id="sweep" min="0" max="100" step="10" value="50">
+        </div>
+        <div class="field">
+          <label for="luck">Market conditions <output id="luckOut">Realistic</output></label>
+          <input type="range" id="luck" min="0" max="2" value="1">
+          <small>Scales every business's chance of finding paying customers.</small>
+        </div>
+        <label class="check"><input type="checkbox" id="respawn" checked> <span>Replace shut-down agents with a copy of the best performer, when the pool can afford a new seed</span></label>
+        <button type="button" id="rerun">Show a random story</button>
+        <div class="err" id="err" hidden></div>
+      </form>
+
+      <div class="results">
+        <div class="stats" id="stats"></div>
+
+        <div class="card">
+          <div class="card-head">
+            <h3>Your money over time</h3>
+            <p>Shaded band: middle 80% of 1,000 simulated futures. Solid line: the story shown below.</p>
+          </div>
+          <div class="chart" id="valueChart"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <h3>Monthly profit by agent, <span id="storyKind">a typical story</span></h3>
+            <p>✕ marks a shut-down. Dashed lines are copies of a winner.</p>
+          </div>
+          <div class="chart" id="agentChart"></div>
+          <div class="legend" id="legend"></div>
+        </div>
+
+        <div class="card">
+          <h3>What happened, month by month</h3>
+          <div class="log" id="log"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div><span class="eyebrow">Assumptions</span><h2>The five starter businesses</h2></div>
+    <p>These numbers are my estimates for small, AI-run online businesses, not guarantees. Change "Market conditions" above to stress-test them. The agents are assigned to these in order, then repeat.</p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Business</th><th>Monthly cost</th><th>Chance of first customers, per month</th><th>Revenue once working</th><th>Monthly growth</th><th>Why it's on the list</th></tr></thead>
+        <tbody id="typeRows"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <div><span class="eyebrow">How to actually run it</span><h2>Rollout plan</h2></div>
+    <div class="phases">
+      <div class="phase"><span class="when">Weeks 1–2</span><h3>Set up the container</h3><ul>
+        <li>Form one LLC that owns every agent business. You stay the legal owner; an AI can't sign contracts or hold accounts.</li>
+        <li>Open a separate business bank account. Issue each agent a virtual card with a hard monthly limit equal to its budget.</li>
+        <li>One shared ledger (a spreadsheet or database) where every dollar in and out is logged per agent.</li>
+      </ul></div>
+      <div class="phase"><span class="when">Months 1–3</span><h3>Pilot small</h3><ul>
+        <li>Start with 3 agents at about $1,500 each and keep the rest in reserve.</li>
+        <li>Each agent runs on Claude with tools for a website, payments, email and ads, and writes a weekly report.</li>
+        <li>You approve any single spend over $100 and anything customer-facing at first.</li>
+      </ul></div>
+      <div class="phase"><span class="when">Month 4 onward</span><h3>Turn on the rules</h3><ul>
+        <li>The monthly review runs automatically from the ledger: shut down, reallocate, sweep profit to you.</li>
+        <li>Winners' playbooks become the starting instructions for new agents.</li>
+        <li>Add money only after at least one agent has been profitable for three straight months.</li>
+      </ul></div>
+    </div>
+  </section>
+
+  <div class="callout">
+    <h3>Guardrails before any real money moves</h3>
+    <ul>
+      <li><strong>Expect most agents to fail.</strong> In the default run, most agents are shut down. The model only pays off when one or two winners grow. Only fund what you can afford to lose entirely.</li>
+      <li><strong>Your license is on the line for real estate work.</strong> A lead-gen agent can collect seller interest, but any referral, advice or advertising of real estate services must go through Legacy Properties under your supervision, with DRE numbers on the ads.</li>
+      <li><strong>Hard spending caps, enforced by the bank.</strong> Rely on card limits, not on the agent following instructions.</li>
+      <li><strong>Talk to your CPA</strong> about how the LLC reports agent income and losses, and to an attorney about terms of service and liability for each business.</li>
+    </ul>
+  </div>
+
+  <footer>Illustrative model. All business numbers are assumptions; results are simulated, not forecasts.</footer>
+</div>
+
+<script>
+(function () {
+  const TYPES = [
+    { name: "Home-seller lead site", short: "Lead-gen", cost: 450, p: 0.10, rev: 700, g: 0.07, color: "--t1",
+      why: "Plays to your expertise. Leads come to Legacy, so you control compliance." },
+    { name: "Digital templates & guides", short: "Digital", cost: 250, p: 0.12, rev: 300, g: 0.09, color: "--t2",
+      why: "Cheap to run, sold on Etsy or Gumroad. Low ceiling, fast feedback." },
+    { name: "Niche content & affiliate site", short: "Content", cost: 300, p: 0.06, rev: 450, g: 0.12, color: "--t3",
+      why: "Slow to start because search traffic takes months, then compounds." },
+    { name: "Small software tool", short: "Software", cost: 650, p: 0.05, rev: 900, g: 0.11, color: "--t4",
+      why: "Hardest to get going, highest upside from monthly subscriptions." },
+    { name: "Print-on-demand store", short: "Store", cost: 700, p: 0.09, rev: 1000, g: 0.05, color: "--t5",
+      why: "Ads-heavy. Revenue arrives sooner but margins are thin." }
+  ];
+  const LUCK = [{ k: 0.55, label: "Tough" }, { k: 1, label: "Realistic" }, { k: 1.5, label: "Favorable" }];
+  const LOST_TRACTION = 0.03;
+  const RUNS = 1000;
+
+  const $ = id => document.getElementById(id);
+  const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  const money = v => (v < 0 ? "−$" : "$") + Math.round(Math.abs(v)).toLocaleString("en-US");
+  const short$ = v => { const a = Math.abs(v), s = v < 0 ? "−" : ""; return a >= 1000 ? s + "$" + (a / 1000).toFixed(a >= 10000 ? 0 : 1) + "k" : s + "$" + Math.round(a); };
+  const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+  function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+  function gauss(r) { let u = 0, v = 0; while (u === 0) u = r(); while (v === 0) v = r(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); }
+
+  function read() {
+    return {
+      fund: +$("fund").value, agents: +$("agents").value, seed: +$("seed").value, months: +$("months").value,
+      grace: +$("grace").value, window: +$("window").value, sweep: +$("sweep").value / 100,
+      luck: LUCK[+$("luck").value].k, respawn: $("respawn").checked
+    };
+  }
+
+  function simulate(P, seedNum, record) {
+    const r = mulberry32(seedNum);
+    let pool = P.fund - P.agents * P.seed, returned = 0, nextId = 0;
+    const agents = [], events = [], value = [P.fund];
+    const add = (type, month, clone) => { const a = { id: LETTERS[nextId++ % 26] + (nextId > 26 ? Math.floor((nextId - 1) / 26) : ""), type, born: month, clone, cash: P.seed, alive: true, traction: false, rev: 0, profits: [], total: 0, died: null }; agents.push(a); return a; };
+    for (let i = 0; i < P.agents; i++) add(i % TYPES.length, 0, false);
+
+    for (let m = 1; m <= P.months; m++) {
+      for (const a of agents) {
+        if (!a.alive) continue;
+        const T = TYPES[a.type];
+        if (!a.traction) {
+          if (r() < T.p * P.luck * (a.clone ? 1.4 : 1)) { a.traction = true; a.rev = T.rev * Math.exp(gauss(r) * 0.45); if (record) events.push([m, "win", `${a.id} (${T.short}) landed its first paying customers`]); }
+        } else {
+          a.rev *= 1 + T.g + gauss(r) * 0.1;
+          if (r() < LOST_TRACTION) { a.traction = false; a.rev = 0; if (record) events.push([m, "info", `${a.id} (${T.short}) lost its main sales channel`]); }
+        }
+        const profit = (a.traction ? a.rev : 0) - T.cost;
+        a.cash += profit; a.total += profit; a.profits.push(profit);
+        const cushion = 3 * T.cost;
+        if (a.cash > cushion && P.sweep > 0) { const take = (a.cash - cushion) * P.sweep; a.cash -= take; returned += take; }
+      }
+      // Monthly review
+      for (const a of agents) {
+        if (!a.alive) continue;
+        const age = m - a.born, trailing = a.profits.slice(-P.window).reduce((s, x) => s + x, 0);
+        if (a.cash <= 0 || (age >= P.grace && trailing <= 0)) {
+          a.alive = false; a.died = m; pool += Math.max(a.cash, 0);
+          if (record) events.push([m, "kill", `${a.id} (${TYPES[a.type].short}) shut down after ${age} mo, returned ${money(Math.max(a.cash, 0))} to the pool`]);
+          a.cash = 0;
+        }
+      }
+      // Reward winners with half the pool
+      const winners = agents.filter(a => a.alive && a.traction && m - a.born >= P.grace).map(a => [a, a.profits.slice(-P.window).reduce((s, x) => s + x, 0)]).filter(x => x[1] > 0);
+      if (P.respawn && pool >= P.seed && agents.filter(a => a.alive).length < P.agents) {
+        const best = agents.reduce((b, a) => a.total > (b ? b.total : -Infinity) ? a : b, null);
+        const hasWinner = best && best.total > 0;
+        const type = hasWinner ? best.type : Math.floor(r() * TYPES.length);
+        pool -= P.seed; const n = add(type, m, hasWinner);
+        if (record) events.push([m, "info", hasWinner ? `New agent ${n.id} copies ${best.id}'s ${TYPES[type].short} playbook` : `New agent ${n.id} tries ${TYPES[type].short} (no winner yet to copy)`]);
+      } else if (winners.length && pool > 0) {
+        // Growth money: each winner can draw up to its recent profit, capped at half the pool.
+        // It is spent on growth (more ads, more output) and adds 6% of the amount to monthly revenue.
+        const cap = pool * 0.5, want = winners.reduce((s, x) => s + x[1], 0), scale = Math.min(1, cap / want);
+        let given = 0;
+        for (const [a, t] of winners) { const g = t * scale; a.rev += g * 0.06; given += g; }
+        pool -= given;
+        if (record && given >= 100) events.push([m, "win", `${money(given)} of growth money went to ${winners.map(x => x[0].id).join(", ")}`]);
+      }
+      value.push(returned + pool + agents.reduce((s, a) => s + (a.alive ? a.cash : 0), 0));
+    }
+    return { value, returned, pool, agents, events, end: value[value.length - 1], killed: agents.filter(a => !a.alive).length, alive: agents.filter(a => a.alive).length };
+  }
+
+  let storySeed = null; // null = pick the run closest to the typical outcome
+
+  function pct(sorted, q) { return sorted[Math.min(sorted.length - 1, Math.floor(q * sorted.length))]; }
+
+  function niceTicks(lo, hi, n) {
+    const span = hi - lo || 1, step0 = span / n, mag = Math.pow(10, Math.floor(Math.log10(step0)));
+    const step = [1, 2, 2.5, 5, 10].map(s => s * mag).find(s => span / s <= n) || mag * 10;
+    const out = []; for (let v = Math.floor(lo / step) * step; v <= hi + 1e-9; v += step) out.push(v); return out;
+  }
+
+  function frame(M, lo, hi) {
+    const W = 760, H = 280, L = 58, R = 16, Tp = 14, B = 30;
+    const ticks = niceTicks(lo, hi, 5); lo = Math.min(lo, ticks[0]); hi = Math.max(hi, ticks[ticks.length - 1]);
+    const x = m => L + (W - L - R) * m / M, y = v => Tp + (H - Tp - B) * (1 - (v - lo) / (hi - lo));
+    let g = "";
+    for (const t of ticks) g += `<line x1="${L}" x2="${W - R}" y1="${y(t)}" y2="${y(t)}" stroke="${css("--line")}" stroke-width="1"/><text x="${L - 8}" y="${y(t) + 4}" text-anchor="end">${short$(t)}</text>`;
+    const xs = M <= 12 ? 3 : 6; for (let m = 0; m <= M; m += xs) g += `<text x="${x(m)}" y="${H - 10}" text-anchor="middle">${m === 0 ? "Start" : "Mo " + m}</text>`;
+    return { W, H, x, y, g };
+  }
+  const path = (pts) => pts.map((p, i) => (i ? "L" : "M") + p[0].toFixed(1) + " " + p[1].toFixed(1)).join(" ");
+
+  function run() {
+    const P = read();
+    $("agentsOut").textContent = P.agents; $("graceOut").textContent = P.grace + " mo"; $("windowOut").textContent = P.window + " mo";
+    $("sweepOut").textContent = Math.round(P.sweep * 100) + "%"; $("luckOut").textContent = LUCK[+$("luck").value].label;
+    const pool = P.fund - P.agents * P.seed;
+    const err = $("err");
+    if (!(P.fund > 0) || !(P.seed > 0) || pool < 0) {
+      err.hidden = false; err.textContent = `${P.agents} agents × ${money(P.seed)} is more than ${money(P.fund)}. Lower the seed or the number of agents, or add funds.`;
+      $("poolNote").textContent = ""; return;
+    }
+    err.hidden = true;
+    $("poolNote").textContent = `${money(P.agents * P.seed)} goes to agents, ${money(pool)} stays in the reserve pool.`;
+
+    // Monte Carlo
+    const ends = [], byMonth = Array.from({ length: P.months + 1 }, () => []);
+    let survivors = 0, everProfit = 0;
+    for (let i = 0; i < RUNS; i++) {
+      const s = simulate(P, 1000 + i, false);
+      ends.push(s.end); s.value.forEach((v, m) => byMonth[m].push(v));
+      survivors += s.alive; if (s.end > P.fund) everProfit++;
+    }
+    ends.sort((a, b) => a - b); byMonth.forEach(a => a.sort((x, y) => x - y));
+    let seedUsed = storySeed;
+    if (seedUsed === null) { const target = pct(ends.slice(), 0.5); let best = Infinity;
+      for (let i = 0; i < 300; i++) { const d = Math.abs(simulate(P, 1000 + i, false).end - target); if (d < best) { best = d; seedUsed = 1000 + i; } } }
+    const story = simulate(P, seedUsed, true);
+    $("storyKind").textContent = storySeed === null ? "a typical story" : "a random story";
+
+    const med = pct(ends, 0.5), p10 = pct(ends, 0.1), p90 = pct(ends, 0.9), ahead = everProfit / RUNS;
+    $("stats").innerHTML = [
+      [Math.round(ahead * 100) + "%", "chance you end with more than you put in", ahead >= 0.5 ? "good" : "bad"],
+      [money(med), `typical value after ${P.months} months, on ${money(P.fund)} in`, med >= P.fund ? "good" : "bad"],
+      [money(p10) + " – " + money(p90), "bad case to good case (1 in 10 each side)", ""],
+      [(survivors / RUNS).toFixed(1), "agents still running at the end, on average", ""]
+    ].map(([v, l, c]) => `<div class="stat ${c}"><span class="v">${v}</span><span class="l">${l}</span></div>`).join("");
+    document.querySelector(".stat:nth-child(3) .v").style.fontSize = "18px";
+
+    // Value chart
+    const lo10 = byMonth.map(a => pct(a, 0.1)), hi90 = byMonth.map(a => pct(a, 0.9));
+    let vmin = Math.min(...lo10, ...story.value, 0), vmax = Math.max(...hi90, ...story.value, P.fund);
+    let f = frame(P.months, vmin, vmax);
+    const band = path(hi90.map((v, m) => [f.x(m), f.y(v)])) + " " + lo10.map((v, m) => [f.x(m), f.y(v)]).reverse().map(p => "L" + p[0].toFixed(1) + " " + p[1].toFixed(1)).join(" ") + " Z";
+    const invested = f.y(P.fund);
+    $("valueChart").innerHTML = `<svg viewBox="0 0 ${f.W} ${f.H}" role="img" aria-label="Value of your money over time">${f.g}
+      <path d="${band}" fill="${css("--band")}" stroke="none"/>
+      <line x1="${f.x(0)}" x2="${f.x(P.months)}" y1="${invested}" y2="${invested}" stroke="${css("--muted")}" stroke-dasharray="4 4" stroke-width="1.5"/>
+      <text x="${f.x(P.months) - 4}" y="${invested - 6}" text-anchor="end">What you put in</text>
+      <path d="${path(byMonth.map((a, m) => [f.x(m), f.y(pct(a, 0.5))]))}" fill="none" stroke="${css("--accent")}" stroke-width="1.5" stroke-dasharray="2 3" opacity=".8"/>
+      <path d="${path(story.value.map((v, m) => [f.x(m), f.y(v)]))}" fill="none" stroke="${css("--accent")}" stroke-width="2.5"/>
+      <circle cx="${f.x(P.months)}" cy="${f.y(story.end)}" r="4" fill="${css("--accent")}"/>
+    </svg>`;
+
+    // Agent chart
+    const all = story.agents.flatMap(a => a.profits);
+    f = frame(P.months, Math.min(0, ...all), Math.max(0, ...all, 100));
+    let lines = `<line x1="${f.x(0)}" x2="${f.x(P.months)}" y1="${f.y(0)}" y2="${f.y(0)}" stroke="${css("--muted")}" stroke-width="1.5"/>`;
+    for (const a of story.agents) {
+      const pts = a.profits.map((p, i) => [f.x(a.born + i + 1), f.y(p)]); if (!pts.length) continue;
+      const c = css(TYPES[a.type].color);
+      lines += `<path d="${path(pts)}" fill="none" stroke="${c}" stroke-width="2" ${a.clone ? 'stroke-dasharray="5 3"' : ""}/>`;
+      const [lx, ly] = pts[pts.length - 1];
+      if (!a.alive) lines += `<path d="M${lx - 5} ${ly - 5} L${lx + 5} ${ly + 5} M${lx + 5} ${ly - 5} L${lx - 5} ${ly + 5}" stroke="${css("--loss")}" stroke-width="2.5"/>`;
+      else lines += `<circle cx="${lx}" cy="${ly}" r="3.5" fill="${c}"/><text x="${Math.min(lx + 6, f.W - 14)}" y="${ly + 4}" fill="${c}">${a.id}</text>`;
+    }
+    $("agentChart").innerHTML = `<svg viewBox="0 0 ${f.W} ${f.H}" role="img" aria-label="Monthly profit per agent">${f.g}${lines}</svg>`;
+    $("legend").innerHTML = story.agents.map(a => `<span><i style="background:${css(TYPES[a.type].color)}"></i>${a.id} · ${TYPES[a.type].short}${a.alive ? "" : " (shut down mo " + a.died + ")"}</span>`).join("");
+
+    const start = `<div><span class="m">Mo 0</span><span><span class="pill info">start</span>${P.agents} agents funded at ${money(P.seed)} each, ${money(pool)} in reserve</span></div>`;
+    const tags = { kill: "shut down", win: "growth", info: "note" };
+    const end = `<div><span class="m">End</span><span><span class="pill ${story.end >= P.fund ? "win" : "kill"}">result</span>${money(story.returned)} paid to you + ${money(story.end - story.returned)} still in the fund = ${money(story.end)}</span></div>`;
+    $("log").innerHTML = start + story.events.map(([m, k, t]) => `<div><span class="m">Mo ${m}</span><span><span class="pill ${k}">${tags[k]}</span>${t}</span></div>`).join("") + end;
+  }
+
+  $("typeRows").innerHTML = TYPES.map(T => `<tr><td><span class="sw" style="background:var(${T.color})"></span>${T.name}</td><td class="n">${money(T.cost)}</td><td class="n">${Math.round(T.p * 100)}%</td><td class="n">~${money(T.rev)}/mo</td><td class="n">${Math.round(T.g * 100)}%</td><td>${T.why}</td></tr>`).join("");
+
+  $("controls").addEventListener("input", () => { storySeed = null; run(); });
+  $("controls").addEventListener("submit", e => e.preventDefault());
+  $("rerun").addEventListener("click", () => { storySeed = Math.floor(Math.random() * 1e9); run(); });
+  try { matchMedia("(prefers-color-scheme: dark)").addEventListener("change", run); } catch (e) {}
+  new MutationObserver(run).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+  run();
+})();
+</script>
