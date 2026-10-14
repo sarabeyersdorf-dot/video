@@ -1,0 +1,430 @@
+<title>Agent Fund Office</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: the fund's back office. Summary strip, agent cards, then the monthly review desk and the ledger. */
+:root {
+  --bg: #f3f5f4; --panel: #ffffff; --ink: #15211d; --muted: #5b6863; --line: #d8dfdc;
+  --accent: #1d6b57; --accent-soft: #dcebe5; --loss: #b3461f; --loss-soft: #f5e1d8; --warn: #8a6a0e; --warn-soft: #f4ecd2;
+  --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #101614; --panel: #18201d; --ink: #e4ece8; --muted: #95a49e; --line: #2b3632;
+  --accent: #5cc0a2; --accent-soft: #1d3a31; --loss: #ee8a62; --loss-soft: #3d2219; --warn: #e2b44e; --warn-soft: #3a3017; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #101614; --panel: #18201d; --ink: #e4ece8; --muted: #95a49e; --line: #2b3632;
+  --accent: #5cc0a2; --accent-soft: #1d3a31; --loss: #ee8a62; --loss-soft: #3d2219; --warn: #e2b44e; --warn-soft: #3a3017; color-scheme: dark }
+
+* { box-sizing: border-box }
+body { background: var(--bg); color: var(--ink); font: 15px/1.55 var(--body) }
+.wrap { max-width: 1120px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 32px 64px; display: grid; gap: 36px }
+h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; line-height: 1.15 }
+h1 { font-size: clamp(28px, 4.5vw, 42px); font-weight: 700 }
+h2 { font-size: 22px; font-weight: 700 }
+h3 { font-size: 16px; font-weight: 700 }
+p { margin: 0; max-width: 68ch }
+.eyebrow { font: 500 12px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted) }
+.muted { color: var(--muted) }
+.small { font-size: 13px }
+header { display: grid; gap: 12px }
+section { display: grid; gap: 14px }
+.num { font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap }
+
+.summary { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 10px; overflow: hidden }
+@media (max-width: 760px) { .summary { grid-template-columns: repeat(2, minmax(0, 1fr)) } }
+.summary div { background: var(--panel); padding: 14px 16px; display: grid; gap: 2px }
+.summary .v { font: 700 22px var(--display); font-variant-numeric: tabular-nums }
+.summary .l { font-size: 12px; color: var(--muted) }
+
+.agents { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px }
+.agent { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 18px; display: grid; gap: 12px; align-content: start; min-width: 0 }
+.agent.shut { opacity: .7 }
+.agent-top { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start }
+.agent .biz { font-size: 13px; color: var(--muted) }
+.pill { display: inline-block; font: 500 11px/1.6 var(--mono); padding: 1px 8px; border-radius: 99px; white-space: nowrap }
+.pill.good { background: var(--accent-soft); color: var(--accent) }
+.pill.bad { background: var(--loss-soft); color: var(--loss) }
+.pill.warn { background: var(--warn-soft); color: var(--warn) }
+.pill.info { background: var(--bg); color: var(--muted); border: 1px solid var(--line) }
+.kv { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px }
+.kv div { display: grid; gap: 1px }
+.kv .k { font-size: 11px; color: var(--muted) }
+.kv .v { font: 500 15px var(--mono); font-variant-numeric: tabular-nums }
+.mission { font-size: 14px }
+.spark { display: flex; gap: 3px; align-items: center; height: 36px; border-bottom: 1px solid var(--line) }
+.spark span { flex: 1; max-width: 18px; border-radius: 2px 2px 0 0; align-self: flex-end }
+.spark span.neg { align-self: flex-start; border-radius: 0 0 2px 2px }
+
+.desk { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 18px; display: grid; gap: 14px }
+.row { display: flex; gap: 10px; flex-wrap: wrap; align-items: end }
+.field { display: grid; gap: 4px; min-width: 0 }
+.field label { font-size: 12px; font-weight: 600 }
+input, select, textarea { font: 14px var(--body); padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink); min-width: 0 }
+input[type=number] { font-family: var(--mono); width: 120px }
+textarea { width: 100%; min-height: 60px; resize: vertical }
+button { font: 600 14px var(--body); padding: 9px 14px; border-radius: 6px; border: 1px solid var(--accent); background: var(--accent); color: var(--panel); cursor: pointer }
+button.ghost { background: transparent; color: var(--accent) }
+button.danger { background: transparent; color: var(--loss); border-color: var(--loss) }
+button:disabled { opacity: .45; cursor: not-allowed }
+button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px }
+.decisions { display: grid; gap: 8px }
+.decision { display: grid; grid-template-columns: 110px 1fr auto; gap: 12px; align-items: baseline; padding: 10px 12px; border-radius: 8px; background: var(--bg) }
+@media (max-width: 560px) { .decision { grid-template-columns: 1fr; gap: 2px } }
+.note { padding: 10px 12px; border-radius: 8px; font-size: 14px }
+.note.warn { background: var(--warn-soft); color: var(--ink) }
+.note.bad { background: var(--loss-soft) }
+.note.good { background: var(--accent-soft) }
+
+.tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--panel) }
+table { border-collapse: collapse; width: 100%; min-width: 640px; font-size: 14px }
+th, td { text-align: left; padding: 9px 14px; border-bottom: 1px solid var(--line); vertical-align: top }
+th { font: 500 11px var(--mono); text-transform: uppercase; letter-spacing: .06em; color: var(--muted) }
+td.r, th.r { text-align: right }
+tr:last-child td { border-bottom: 0 }
+td button { padding: 3px 9px; font-size: 12px }
+
+.two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start }
+@media (max-width: 860px) { .two { grid-template-columns: 1fr } }
+.box { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 18px; display: grid; gap: 10px; align-content: start }
+.box ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; font-size: 14px }
+.check { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; padding: 6px 0; border-bottom: 1px dashed var(--line) }
+.check:last-child { border-bottom: 0 }
+.check input { margin-top: 4px; accent-color: var(--accent) }
+.check.done span { color: var(--muted); text-decoration: line-through }
+details summary { cursor: pointer; font-weight: 600; color: var(--accent) }
+.banner { padding: 12px 14px; border-radius: 8px; background: var(--warn-soft); font-size: 14px }
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(20px + env(safe-area-inset-bottom, 0px)); background: var(--ink); color: var(--bg); padding: 9px 16px; border-radius: 8px; font-size: 14px }
+</style>
+
+<div class="wrap">
+  <header>
+    <span class="eyebrow">Sara Cooper · first test fund</span>
+    <h1>Agent Fund Office</h1>
+    <p class="muted">Track each agent's money, run the monthly review, and see who stays, who's shut down and what comes back to you. The real money stays in your business bank account; this page tracks how much of it belongs to each agent.</p>
+    <div class="banner" id="banner" hidden></div>
+  </header>
+
+  <div class="summary" id="summary">
+    <div><span class="v num" id="sFund">—</span><span class="l">You put in</span></div>
+    <div><span class="v num" id="sPool">—</span><span class="l">Reserve pool</span></div>
+    <div><span class="v num" id="sAgents">—</span><span class="l">Held by agents</span></div>
+    <div><span class="v num" id="sPaid">—</span><span class="l">Paid back to you</span></div>
+    <div><span class="v num" id="sValue">—</span><span class="l">Total value now</span></div>
+  </div>
+
+  <section>
+    <div><span class="eyebrow">Agents</span><h2>Who's running what</h2></div>
+    <div class="agents" id="agents"><p class="muted">Loading the agents…</p></div>
+  </section>
+
+  <section>
+    <div><span class="eyebrow">Monthly review</span><h2>Decide who stays</h2></div>
+    <div class="desk">
+      <div class="row">
+        <div class="field"><label for="revMonth">Month to review</label><select id="revMonth"></select></div>
+        <p class="small muted" id="revRule"></p>
+      </div>
+      <div id="revBody" class="decisions"></div>
+      <div class="row" id="revActions"></div>
+    </div>
+  </section>
+
+  <section>
+    <div><span class="eyebrow">Ledger</span><h2>Monthly numbers</h2></div>
+    <form class="desk" id="entryForm" autocomplete="off" hidden>
+      <h3 id="entryTitle">Add an agent's month</h3>
+      <div class="row">
+        <div class="field"><label for="eAgent">Agent</label><select id="eAgent"></select></div>
+        <div class="field"><label for="eMonth">Month</label><input type="month" id="eMonth"></div>
+        <div class="field"><label for="eRev">Money in ($)</label><input type="number" id="eRev" min="0" step="1" value="0"></div>
+        <div class="field"><label for="eCost">Money out ($)</label><input type="number" id="eCost" min="0" step="1" value="0"></div>
+      </div>
+      <div class="field"><label for="eNote">What happened</label><textarea id="eNote" placeholder="Example: Listed 12 planners on Etsy, 4 sales. Spent $40 on Etsy ads."></textarea></div>
+      <div class="row"><button type="submit" id="eSave">Save month</button><span class="small muted">Saving the same agent and month again replaces it.</span></div>
+    </form>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Month</th><th>Agent</th><th class="r">Money in</th><th class="r">Money out</th><th class="r">Profit</th><th>What happened</th><th></th></tr></thead>
+        <tbody id="ledger"><tr><td colspan="7" class="muted">No months logged yet. Each agent's numbers appear here once the first month is entered.</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <div class="two">
+    <section class="box">
+      <div><span class="eyebrow">Before launch</span><h3>Things only you can do</h3></div>
+      <p class="small muted">Agents can't open accounts or sign up in your name. Tick these off as you go.</p>
+      <div id="checklist"></div>
+    </section>
+    <section class="box">
+      <div><span class="eyebrow">Every agent follows these</span><h3>House rules</h3></div>
+      <ul>
+        <li><strong>No real estate, ever.</strong> No real estate services, referrals, leads or advice. Never use your name, Legacy Properties or any DRE number.</li>
+        <li>Spend only on its own card, within its monthly limit.</li>
+        <li>Ask you first before any single purchase over $100, opening any account, signing up for anything paid, or making a public claim about results.</li>
+        <li>No fake reviews, no spam, no copying other people's work. Follow every platform's rules, including disclosing AI-made products where required.</li>
+        <li>Log its money in and out here every month and write a short weekly report.</li>
+        <li id="ruleReview">Grace period, review window and payouts follow the fund settings.</li>
+      </ul>
+    </section>
+  </div>
+
+  <details class="desk" id="addAgentBox" hidden>
+    <summary>Add a new agent</summary>
+    <form id="agentForm" autocomplete="off" style="display:grid;gap:12px">
+      <div class="row">
+        <div class="field"><label for="aName">Name</label><input id="aName" placeholder="Agent D"></div>
+        <div class="field"><label for="aBiz">Business</label><input id="aBiz" placeholder="Copy of Agent A's playbook"></div>
+        <div class="field"><label for="aSeed">Seed from pool ($)</label><input type="number" id="aSeed" min="0" step="50" value="1200"></div>
+        <div class="field"><label for="aCap">Card limit per month ($)</label><input type="number" id="aCap" min="0" step="10" value="200"></div>
+        <div class="field"><label for="aStart">First month</label><input type="month" id="aStart"></div>
+      </div>
+      <div class="field"><label for="aMission">Mission</label><textarea id="aMission"></textarea></div>
+      <div class="row"><button type="submit">Add agent</button><span class="small muted" id="aHint"></span></div>
+    </form>
+  </details>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+(function () {
+  const $ = id => document.getElementById(id);
+  const money = v => (v < 0 ? "−$" : "$") + Math.round(Math.abs(v)).toLocaleString("en-US");
+  const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const ym = s => { const [y, m] = String(s).split("-").map(Number); return y * 12 + m - 1; };
+  const fromYm = n => Math.floor(n / 12) + "-" + String(n % 12 + 1).padStart(2, "0");
+  const label = s => new Date(+s.slice(0, 4), +s.slice(5, 7) - 1, 1).toLocaleDateString("en-US", { month: "short", year: "numeric" });
+  const validMonth = s => /^\d{4}-\d{2}$/.test(s || "");
+
+  const CHECKLIST = [
+    ["llc", "Form an LLC to own the agent businesses (separate from Legacy Properties)"],
+    ["ein", "Get an EIN for the LLC from the IRS (free, online)"],
+    ["bank", "Open a business bank account for the LLC and deposit the $5,000"],
+    ["cards", "Issue one virtual card per agent with a hard monthly limit"],
+    ["email", "Create one shared email address for the agents' accounts"],
+    ["etsy", "Open Etsy and Gumroad seller accounts in the LLC's name (Agent A)"],
+    ["affiliate", "Apply to Amazon Associates and buy a domain name (Agent B)"],
+    ["stripe", "Open a Stripe account for the LLC (Agent C)"],
+    ["cpa", "Ask your CPA how the LLC should report income and losses"]
+  ];
+
+  const S = { settings: null, agents: [], entries: {}, reviews: {}, checklist: {} };
+  let db = null, canWrite = false;
+
+  function toast(msg) { const t = $("toast"); t.textContent = msg; t.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => t.hidden = true, 2600); }
+  function banner(msg) { const b = $("banner"); b.textContent = msg; b.hidden = !msg; }
+
+  // ---- Ledger math ----
+  function ledger(upto, skipReview) {
+    const set = S.settings, A = {};
+    for (const a of S.agents) A[a.id] = { a, cash: 0, profits: {}, started: false, shut: false, shutMonth: null, paid: 0, growth: 0 };
+    let pool = set.fund, paid = 0;
+    if (!validMonth(upto)) return { A, pool, paid };
+    for (let n = ym(set.start); n <= ym(upto); n++) {
+      const m = fromYm(n);
+      for (const x of Object.values(A)) {
+        if (!x.started && validMonth(x.a.startMonth) && ym(x.a.startMonth) <= n) { x.started = true; pool -= x.a.seed; x.cash = x.a.seed; }
+        if (x.started && !x.shut) { const e = S.entries[x.a.id + "_" + m]; if (e) { const p = (+e.revenue || 0) - (+e.costs || 0); x.cash += p; x.profits[m] = p; } }
+      }
+      const r = S.reviews[m];
+      if (r && m !== skipReview) for (const d of r.decisions || []) {
+        const x = A[d.agent]; if (!x) continue;
+        if (d.action === "shut") { pool += d.amount; x.cash -= d.amount; x.shut = true; x.shutMonth = m; }
+        if (d.action === "growth") { pool -= d.amount; x.cash += d.amount; x.growth += d.amount; }
+        if (d.action === "payout") { x.cash -= d.amount; x.paid += d.amount; paid += d.amount; }
+      }
+    }
+    return { A, pool, paid };
+  }
+  const trailing = (x, m, w) => { let s = 0; for (let i = 0; i < w; i++) { const k = fromYm(ym(m) - i); if (k in x.profits) s += x.profits[k]; } return s; };
+  const ageAt = (a, m) => ym(m) - ym(a.startMonth) + 1;
+
+  function latestMonth() {
+    const ms = Object.values(S.entries).map(e => e.month).filter(validMonth).concat(Object.keys(S.reviews));
+    return ms.length ? ms.sort().pop() : null;
+  }
+
+  function proposal(m) {
+    const set = S.settings, L = ledger(m, m), out = [], missing = [];
+    const active = Object.values(L.A).filter(x => x.started && !x.shut);
+    let pool = L.pool; const winners = [];
+    for (const x of active) {
+      if (!S.entries[x.a.id + "_" + m]) missing.push(x.a.name);
+      const age = ageAt(x.a, m), t = trailing(x, m, set.window), cash = x.cash;
+      if (cash <= 0) { out.push({ agent: x.a.id, action: "shut", amount: 0, reason: `Ran out of money (balance ${money(cash)}).` }); continue; }
+      if (age >= set.grace && t <= 0) { out.push({ agent: x.a.id, action: "shut", amount: Math.round(cash), reason: `Past its ${set.grace}-month grace period and ${t < 0 ? "lost " + money(-t) : "made no profit"} over the last ${set.window} months. Its ${money(cash)} goes back to the pool.` }); pool += Math.round(cash); continue; }
+      if (age < set.grace) { out.push({ agent: x.a.id, action: "keep", amount: 0, reason: `Grace period, month ${age} of ${set.grace}. Not judged yet.` }); continue; }
+      // Above its cushion, an agent pays you; below it, it can draw growth money.
+      const cushion = 3 * x.a.cardLimit;
+      if (cash > cushion) {
+        const amt = Math.round((cash - cushion) * set.sweep);
+        out.push(amt > 0 ? { agent: x.a.id, action: "payout", amount: amt, reason: `Made ${money(t)} over the last ${set.window} months and holds ${money(cash)}, more than its ${money(cushion)} cushion. ${Math.round(set.sweep * 100)}% of the extra comes to you.` }
+          : { agent: x.a.id, action: "keep", amount: 0, reason: `Making money and holds more than its cushion.` });
+      } else winners.push([x, t, cushion - cash]);
+    }
+    if (winners.length) {
+      const want = winners.reduce((s, w) => s + w[1], 0), scale = Math.max(0, Math.min(1, pool * 0.5 / want));
+      for (const [x, t, room] of winners) { const g = Math.floor(Math.min(t * scale, room)); out.push({ agent: x.a.id, action: g > 0 ? "growth" : "keep", amount: g, reason: g > 0 ? `Made ${money(t)} over the last ${set.window} months. Gets ${money(g)} of growth money from the pool; raise its card limit to match.` : "Making money. No growth money this month." }); }
+    }
+    return { decisions: out, missing, poolBefore: L.pool };
+  }
+
+  // ---- Rendering ----
+  function render() {
+    if (!S.settings) return;
+    const set = S.settings, now = latestMonth() || set.start, L = ledger(now);
+    const held = Object.values(L.A).reduce((s, x) => s + (x.started && !x.shut ? x.cash : 0), 0);
+    const notStartedSeeds = Object.values(L.A).filter(x => !x.started).reduce((s, x) => s + x.a.seed, 0);
+    $("sFund").textContent = money(set.fund);
+    $("sPool").textContent = money(L.pool - notStartedSeeds);
+    $("sAgents").textContent = money(held + notStartedSeeds);
+    $("sPaid").textContent = money(L.paid);
+    $("sValue").textContent = money(L.pool + held + L.paid);
+    $("revRule").textContent = `Rules: ${set.grace}-month grace period, judged on the last ${set.window} months, ${Math.round(set.sweep * 100)}% of extra profit paid to you.`;
+    $("ruleReview").textContent = `After a ${set.grace}-month grace period, an agent that lost money over its last ${set.window} months is shut down and its leftover money returns to the pool. A profitable agent holding less than three months of its card limit gets growth money; above that, ${Math.round(set.sweep * 100)}% of the extra is paid to you.`;
+
+    // Agent cards
+    const cards = S.agents.slice().sort((a, b) => a.name.localeCompare(b.name)).map(a => {
+      const x = L.A[a.id], hasData = Object.keys(x.profits).length > 0;
+      let pill;
+      if (x.shut || a.status === "shut_down") pill = `<span class="pill bad">Shut down ${x.shutMonth ? label(x.shutMonth) : ""}</span>`;
+      else if (!x.started || !hasData) pill = `<span class="pill info">Setting up</span>`;
+      else { const age = ageAt(a, now), t = trailing(x, now, set.window);
+        pill = age < set.grace ? `<span class="pill warn">Grace · month ${age} of ${set.grace}</span>` : t > 0 ? `<span class="pill good">Making money</span>` : `<span class="pill bad">Losing money · at risk</span>`; }
+      const months = Object.keys(x.profits).sort().slice(-12), mx = Math.max(1, ...months.map(k => Math.abs(x.profits[k])));
+      const spark = months.length ? `<div class="spark" aria-label="Monthly profit">${months.map(k => { const p = x.profits[k]; return `<span class="${p < 0 ? "neg" : ""}" title="${label(k)}: ${money(p)}" style="height:${Math.max(2, Math.abs(p) / mx * 34)}px;background:var(${p < 0 ? "--loss" : "--accent"})"></span>`; }).join("")}</div>` : "";
+      return `<article class="agent${x.shut ? " shut" : ""}">
+        <div class="agent-top"><div><h3>${esc(a.name)}</h3><div class="biz">${esc(a.business)}</div></div>${pill}</div>
+        <p class="mission">${esc(a.mission)}</p>
+        <div class="kv">
+          <div><span class="k">Balance</span><span class="v">${money(x.started && !x.shut ? x.cash : x.started ? 0 : a.seed)}</span></div>
+          <div><span class="k">Last ${set.window} mo profit</span><span class="v">${hasData ? money(trailing(x, now, set.window)) : "—"}</span></div>
+          <div><span class="k">Card limit / mo</span><span class="v">${money(a.cardLimit)}</span></div>
+        </div>
+        ${spark}
+        <p class="small muted">Seed ${money(a.seed)} · starts ${validMonth(a.startMonth) ? label(a.startMonth) : "—"}${x.paid ? " · paid you " + money(x.paid) : ""}${x.growth ? " · growth " + money(x.growth) : ""}</p>
+      </article>`;
+    });
+    $("agents").innerHTML = cards.length ? cards.join("") : `<p class="muted">No agents yet.</p>`;
+
+    // Review month options
+    const sel = $("revMonth"), prev = sel.value, opts = [];
+    for (let n = ym(set.start); n <= ym(now); n++) opts.push(fromYm(n));
+    sel.innerHTML = opts.reverse().map(m => `<option value="${m}">${label(m)}${S.reviews[m] ? " · done" : ""}</option>`).join("");
+    if (opts.includes(prev)) sel.value = prev;
+    renderReview();
+
+    // Entry form agents
+    const eA = $("eAgent"), keep = eA.value;
+    eA.innerHTML = S.agents.filter(a => a.status !== "shut_down").map(a => `<option value="${esc(a.id)}">${esc(a.name)}</option>`).join("");
+    if ([...eA.options].some(o => o.value === keep)) eA.value = keep;
+    if (!$("eMonth").value) $("eMonth").value = now;
+
+    // Ledger table
+    const rows = Object.values(S.entries).filter(e => validMonth(e.month)).sort((a, b) => b.month.localeCompare(a.month) || String(a.agent).localeCompare(b.agent));
+    const name = id => (S.agents.find(a => a.id === id) || { name: id }).name;
+    $("ledger").innerHTML = rows.length ? rows.map(e => { const p = (+e.revenue || 0) - (+e.costs || 0); return `<tr>
+      <td class="num">${label(e.month)}</td><td>${esc(name(e.agent))}</td>
+      <td class="r num">${money(+e.revenue || 0)}</td><td class="r num">${money(+e.costs || 0)}</td>
+      <td class="r num" style="color:var(${p < 0 ? "--loss" : "--accent"})">${money(p)}</td>
+      <td class="small">${esc(e.note)}</td>
+      <td>${canWrite && !S.reviews[e.month] ? `<button class="ghost" data-edit="${esc(e.agent + "_" + e.month)}">Edit</button>` : ""}</td></tr>`; }).join("")
+      : `<tr><td colspan="7" class="muted">No months logged yet. Each agent's numbers appear here once the first month is entered.</td></tr>`;
+
+    // Checklist
+    $("checklist").innerHTML = CHECKLIST.map(([k, t]) => `<label class="check${S.checklist[k] ? " done" : ""}"><input type="checkbox" data-check="${k}" ${S.checklist[k] ? "checked" : ""} ${canWrite ? "" : "disabled"}><span>${esc(t)}</span></label>`).join("");
+    $("aHint").textContent = `Pool has ${money(L.pool - notStartedSeeds)} available.`;
+  }
+
+  function renderReview() {
+    const m = $("revMonth").value, body = $("revBody"), act = $("revActions");
+    if (!m) { body.innerHTML = ""; act.innerHTML = ""; return; }
+    const name = id => esc((S.agents.find(a => a.id === id) || { name: id }).name);
+    const tag = { shut: ["bad", "Shut down"], growth: ["good", "Growth money"], payout: ["good", "Pay you"], keep: ["info", "Keep going"] };
+    const row = d => `<div class="decision"><span><span class="pill ${tag[d.action][0]}">${tag[d.action][1]}</span></span><span><strong>${name(d.agent)}</strong> · ${esc(d.reason)}</span><span class="num">${d.amount ? money(d.amount) : ""}</span></div>`;
+    const done = S.reviews[m];
+    if (done) {
+      body.innerHTML = `<div class="note good">Review for ${label(m)} was applied${done.appliedAt ? " on " + new Date(done.appliedAt).toLocaleDateString("en-US") : ""}.</div>` + (done.decisions || []).map(row).join("");
+      act.innerHTML = canWrite && m === Object.keys(S.reviews).sort().pop() ? `<button class="danger" id="undoRev">Undo this review</button>` : "";
+      return;
+    }
+    const p = proposal(m), earlier = Object.keys(S.reviews).some(k => k > m);
+    let html = "";
+    if (earlier) html += `<div class="note warn">A later month has already been reviewed. Reviews go in order, so this month can't be applied now.</div>`;
+    if (p.missing.length) html += `<div class="note warn">Missing ${label(m)} numbers for ${p.missing.map(esc).join(", ")}. Add them in the ledger below before applying.</div>`;
+    html += p.decisions.length ? p.decisions.map(row).join("") : `<p class="muted small">No agents are running in ${label(m)}.</p>`;
+    body.innerHTML = html;
+    act.innerHTML = canWrite ? `<button id="applyRev" ${p.missing.length || earlier || !p.decisions.length ? "disabled" : ""}>Apply review for ${label(m)}</button><span class="small muted">This records the decisions. Move the actual money in your bank account to match.</span>` : `<span class="small muted">Only the fund's owner can apply reviews.</span>`;
+  }
+
+  // ---- Wiring ----
+  $("revMonth").addEventListener("change", renderReview);
+  $("revActions").addEventListener("click", async e => {
+    const m = $("revMonth").value;
+    if (e.target.id === "applyRev") {
+      const p = proposal(m); e.target.disabled = true;
+      try {
+        await db.doc("reviews/" + m).set({ month: m, decisions: p.decisions, appliedAt: new Date().toISOString() });
+        for (const d of p.decisions.filter(d => d.action === "shut")) await db.doc("agents/" + d.agent).update({ status: "shut_down", shutMonth: m });
+        toast(`Review for ${label(m)} applied`);
+      } catch (err) { toast("Couldn't save the review: " + (err && err.message || "try again")); e.target.disabled = false; }
+    }
+    if (e.target.id === "undoRev") {
+      const r = S.reviews[m]; e.target.disabled = true;
+      try {
+        for (const d of (r.decisions || []).filter(d => d.action === "shut")) await db.doc("agents/" + d.agent).update({ status: "active", shutMonth: null });
+        await db.doc("reviews/" + m).delete(); toast(`Review for ${label(m)} undone`);
+      } catch (err) { toast("Couldn't undo: " + (err && err.message || "try again")); e.target.disabled = false; }
+    }
+  });
+  $("entryForm").addEventListener("submit", async e => {
+    e.preventDefault();
+    const agent = $("eAgent").value, month = $("eMonth").value;
+    if (!agent || !validMonth(month)) { toast("Pick an agent and a month first"); return; }
+    if (S.reviews[month]) { toast(`${label(month)} is already reviewed. Undo the review to change it.`); return; }
+    const rev = Math.max(0, +$("eRev").value || 0), cost = Math.max(0, +$("eCost").value || 0);
+    $("eSave").disabled = true;
+    try { await db.doc("entries/" + agent + "_" + month).set({ agent, month, revenue: rev, costs: cost, note: $("eNote").value.trim(), updatedAt: new Date().toISOString() }); toast("Month saved"); $("eNote").value = ""; $("eRev").value = 0; $("eCost").value = 0; $("entryTitle").textContent = "Add an agent's month"; }
+    catch (err) { toast("Couldn't save: " + (err && err.message || "try again")); }
+    $("eSave").disabled = false;
+  });
+  $("ledger").addEventListener("click", e => {
+    const k = e.target.dataset && e.target.dataset.edit; if (!k) return;
+    const en = S.entries[k]; if (!en) return;
+    $("eAgent").value = en.agent; $("eMonth").value = en.month; $("eRev").value = en.revenue || 0; $("eCost").value = en.costs || 0; $("eNote").value = en.note || "";
+    $("entryTitle").textContent = "Edit an agent's month"; $("entryForm").scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+  $("checklist").addEventListener("change", async e => {
+    const k = e.target.dataset && e.target.dataset.check; if (!k) return;
+    const next = Object.assign({}, S.checklist, { [k]: e.target.checked });
+    try { await db.doc("fund/checklist").set(next); } catch (err) { toast("Couldn't save the checklist"); }
+  });
+  $("agentForm").addEventListener("submit", async e => {
+    e.preventDefault();
+    const name = $("aName").value.trim(), start = $("aStart").value;
+    if (!name || !validMonth(start)) { toast("Give the agent a name and a first month"); return; }
+    const id = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "agent";
+    if (S.agents.some(a => a.id === id)) { toast("An agent with that name already exists"); return; }
+    try { await db.doc("agents/" + id).set({ name, business: $("aBiz").value.trim(), mission: $("aMission").value.trim(), seed: Math.max(0, +$("aSeed").value || 0), cardLimit: Math.max(0, +$("aCap").value || 0), startMonth: start, status: "active" }); toast(`${name} added`); $("agentForm").reset(); }
+    catch (err) { toast("Couldn't add the agent: " + (err && err.message || "try again")); }
+  });
+
+  (async () => {
+    db = await claude.use("db");
+    if (!db) { banner("The ledger isn't available in this view. Open this page in claude.ai while signed in to see the fund."); $("agents").innerHTML = ""; render(); return; }
+    const user = await claude.use("user");
+    canWrite = user ? (await user.canEdit()) !== false : true;
+    $("entryForm").hidden = !canWrite; $("addAgentBox").hidden = !canWrite;
+    const fail = () => banner("Lost the connection to the ledger. Reload the page to reconnect.");
+    db.doc("fund/settings").onSnapshot(s => { if (s.exists) { S.settings = s.data(); banner(""); } else banner("The fund hasn't been set up yet. Ask Claude to seed the fund settings and agents."); render(); }, fail);
+    db.doc("fund/checklist").onSnapshot(s => { S.checklist = s.exists ? s.data() : {}; render(); }, fail);
+    db.collection("agents").onSnapshot(q => { S.agents = q.docs.map(d => Object.assign({ id: d.id }, d.data())); render(); }, fail);
+    db.collection("entries").onSnapshot(q => { S.entries = {}; q.docs.forEach(d => S.entries[d.id] = d.data()); render(); }, fail);
+    db.collection("reviews").onSnapshot(q => { S.reviews = {}; q.docs.forEach(d => S.reviews[d.id] = d.data()); render(); }, fail);
+  })();
+})();
+</script>
